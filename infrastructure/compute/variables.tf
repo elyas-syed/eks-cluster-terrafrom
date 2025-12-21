@@ -70,13 +70,14 @@ variable "cluster_enabled_log_types" {
 variable "node_groups" {
   description = "Map of EKS managed node group definitions"
   type = map(object({
-    instance_types = list(string)
-    capacity_type  = optional(string)
-    ami_type       = optional(string)
-    disk_size      = optional(number)
-    min_size       = number
-    max_size       = number
-    desired_size   = number
+    instance_types             = list(string)
+    capacity_type              = optional(string)
+    ami_type                   = optional(string)
+    disk_size                  = optional(number)
+    min_size                   = number
+    max_size                   = number
+    desired_size               = number
+    use_custom_launch_template = optional(bool, false) # Add this line
   }))
 }
 
@@ -89,4 +90,39 @@ variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
   default     = {}
+}
+
+variable "cluster_addons" {
+  description = "Map of cluster addon configurations"
+  type = map(object({
+    addon_version               = optional(string)
+    resolve_conflicts_on_create = optional(string, "OVERWRITE")
+    resolve_conflicts_on_update = optional(string, "OVERWRITE")
+    service_account_role_arn    = optional(string)
+    configuration_values        = optional(string)
+  }))
+  default = {}
+}
+
+variable "access_entries" {
+  description = "Map of access entries to add to the cluster"
+  type = map(object({
+    kubernetes_groups = optional(list(string))
+    principal_arn     = string
+    type              = optional(string, "STANDARD")
+    user_name         = optional(string)
+  }))
+  default = {}
+}
+
+variable "authentication_mode" {
+  description = "The authentication mode for the cluster"
+  type        = string
+  default     = "API_AND_CONFIG_MAP"
+}
+
+variable "ebs_csi_driver_role_arn" {
+  description = "ARN of the IAM role for EBS CSI driver"
+  type        = string
+  default     = null # Make it optional
 }

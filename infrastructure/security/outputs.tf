@@ -18,12 +18,24 @@ output "node_group_security_group_id" {
   value       = aws_security_group.node_group.id
 }
 
-output "oidc_provider_arn" {
-  description = "ARN of the OIDC Provider for IRSA"
-  value       = aws_iam_openid_connect_provider.cluster.arn
-}
+# Comment out or remove OIDC outputs since we moved OIDC to compute module
+# output "oidc_provider_arn" {
+#   description = "ARN of the OIDC Provider for IRSA"
+#   value       = aws_iam_openid_connect_provider.cluster.arn
+# }
 
-output "oidc_provider_url" {
-  description = "URL of the OIDC Provider"
-  value       = aws_iam_openid_connect_provider.cluster.url
-}
+# output "oidc_provider_url" {
+#   description = "URL of the OIDC Provider"
+#   value       = aws_iam_openid_connect_provider.cluster.url
+# }
+
+# Remove these outputs - they're now in the IRSA module
+# output "ebs_csi_driver_role_arn" {
+#   description = "ARN of the EBS CSI driver IAM role"
+#   value       = aws_iam_role.ebs_csi_driver.arn
+# }
+
+# output "aws_load_balancer_controller_role_arn" {
+#   description = "ARN of the AWS Load Balancer Controller IAM role"
+#   value       = aws_iam_role.aws_load_balancer_controller.arn
+# }

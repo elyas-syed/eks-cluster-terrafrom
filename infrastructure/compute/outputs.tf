@@ -32,11 +32,11 @@ output "node_groups" {
   description = "Map of node group attributes"
   value = {
     for k, v in aws_eks_node_group.main : k => {
-      arn           = v.arn
-      status        = v.status
-      capacity_type = v.capacity_type
+      arn            = v.arn
+      status         = v.status
+      capacity_type  = v.capacity_type
       instance_types = v.instance_types
-      ami_type      = v.ami_type
+      ami_type       = v.ami_type
     }
   }
 }

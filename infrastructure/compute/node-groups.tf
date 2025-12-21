@@ -1,67 +1,72 @@
-# ==============================================================================
-# EKS MANAGED NODE GROUPS
-# ==============================================================================
-
+# EKS Managed Node Groups
 resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.cluster_name}-${each.key}"
+  node_group_name = each.key
   node_role_arn   = var.node_group_role_arn
   subnet_ids      = var.private_subnet_ids
 
-  # Instance configuration
+  capacity_type  = each.value.capacity_type
+  ami_type       = each.value.ami_type
+  # disk_size is specified in the launch template, not here
   instance_types = each.value.instance_types
-  capacity_type  = lookup(each.value, "capacity_type", "ON_DEMAND")
-  ami_type       = lookup(each.value, "ami_type", "AL2_x86_64")
 
-  # Scaling configuration
   scaling_config {
     desired_size = each.value.desired_size
     max_size     = each.value.max_size
     min_size     = each.value.min_size
   }
 
-  # Update configuration
-  update_config {
-    max_unavailable_percentage = 25 # Allow 25% of nodes to be unavailable during updates
+  # Use basic labels only
+  labels = {
+    "node-group"  = each.key
+    "environment" = var.environment
   }
 
-  # Launch template configuration
+  # Launch template for enhanced features (encryption, metadata options, etc.)
   launch_template {
-    name    = aws_launch_template.node_group[each.key].name
+    id      = aws_launch_template.node_group[each.key].id
     version = aws_launch_template.node_group[each.key].latest_version
   }
+
+  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
+  depends_on = [
+    aws_eks_cluster.main,
+    aws_launch_template.node_group,
+  ]
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-${each.key}-node-group"
   })
+
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
 }
 
-# ==============================================================================
-# LAUNCH TEMPLATES FOR NODE GROUPS
-# ==============================================================================
-
+# Enhanced Launch Templates
 resource "aws_launch_template" "node_group" {
-  for_each = var.node_groups
+  for_each = var.node_groups # Remove the conditional filter
 
   name_prefix = "${var.cluster_name}-${each.key}-"
+
+  vpc_security_group_ids = [var.node_group_security_group_id]
 
   # EBS configuration
   block_device_mappings {
     device_name = "/dev/xvda"
     ebs {
-      volume_size           = lookup(each.value, "disk_size", 20)
+      volume_size           = each.value.disk_size
       volume_type           = "gp3"
+      iops                  = 3000
+      throughput            = 125
       encrypted             = true
       delete_on_termination = true
     }
   }
 
-  # Security configuration
-  vpc_security_group_ids = [var.node_group_security_group_id]
-
-  # Metadata options (IMDSv2)
+  # Metadata options
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
@@ -69,10 +74,24 @@ resource "aws_launch_template" "node_group" {
     instance_metadata_tags      = "enabled"
   }
 
+  # Monitoring
+  monitoring {
+    enabled = true
+  }
+
+  # Note: EKS managed node groups handle bootstrap automatically
+  # User data is optional and should be minimal for managed node groups
+  # Uncomment below if you need custom user data (must be in MIME multipart format)
+  # user_data = base64encode(templatefile("${path.module}/user-data.sh", {
+  #   cluster_name = var.cluster_name
+  #   environment  = var.environment
+  # }))
+
   tag_specifications {
     resource_type = "instance"
     tags = merge(var.tags, {
-      Name = "${var.cluster_name}-${each.key}-node"
+      Name                                        = "${var.cluster_name}-${each.key}-node"
+      "kubernetes.io/cluster/${var.cluster_name}" = "owned"
     })
   }
 

@@ -176,7 +176,7 @@ resource "aws_iam_role_policy" "aws_load_balancer_controller" {
         ]
         Condition = {
           Null = {
-            "aws:RequestedRegion" = "false"
+            "aws:RequestedRegion"                   = "false"
             "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
           }
         }

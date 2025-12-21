@@ -14,9 +14,9 @@ variable "cluster_name" {
 }
 
 variable "cluster_version" {
-  description = "Kubernetes version for the EKS cluster"
+  description = "Kubernetes version for the EKS cluster. Latest: 1.34 (as of December 2024). Upgrades must be done sequentially (e.g., 1.28 -> 1.29 -> 1.30 -> 1.31 -> 1.32 -> 1.33 -> 1.34)"
   type        = string
-  default     = "1.28"
+  default     = "1.34"
 }
 
 variable "aws_region" {
@@ -102,7 +102,7 @@ variable "node_groups" {
   type = map(object({
     instance_types = list(string)
     capacity_type  = optional(string, "ON_DEMAND")
-    ami_type       = optional(string, "AL2_x86_64")
+    ami_type       = optional(string, "AL2023_x86_64_STANDARD")  # AL2023 required for Kubernetes 1.33+
     disk_size      = optional(number, 20)
     min_size       = number
     max_size       = number
@@ -132,7 +132,7 @@ variable "node_groups" {
     general = {
       instance_types = ["t3.micro"]
       capacity_type  = "ON_DEMAND"
-      ami_type       = "AL2_x86_64"
+      ami_type       = "AL2023_x86_64_STANDARD"  # AL2023 required for Kubernetes 1.33+
       disk_size      = 20
       min_size       = 1
       max_size       = 3

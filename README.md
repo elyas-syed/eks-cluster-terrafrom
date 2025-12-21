@@ -6,45 +6,15 @@ A Terraform module for deploying a complete AWS EKS (Elastic Kubernetes Service)
 
 - [Features](#features)
 - [Architecture](#architecture)
-  - [Network Architecture](#network-architecture)
-  - [Security Architecture](#security-architecture)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
-  - [1. Clone the Repository](#1-clone-the-repository)
-  - [2. Configure Variables](#2-configure-variables)
-  - [3. Initialize Terraform](#3-initialize-terraform)
-  - [4. Review the Plan](#4-review-the-plan)
-  - [5. Deploy](#5-deploy)
-  - [6. Configure kubectl](#6-configure-kubectl)
 - [Configuration](#configuration)
-  - [Required Variables](#required-variables)
-  - [Node Groups Configuration](#node-groups-configuration)
-  - [EKS Addons](#eks-addons)
-  - [Access Entries](#access-entries)
-  - [Networking Configuration](#networking-configuration)
-  - [Cluster Endpoint Configuration](#cluster-endpoint-configuration)
 - [Deployment](#deployment)
-  - [Standard Deployment](#standard-deployment)
-  - [Environment-Specific Deployment](#environment-specific-deployment)
-  - [Destroying Resources](#destroying-resources)
 - [Access and Usage](#access-and-usage)
-  - [Configuring kubectl](#configuring-kubectl)
-  - [Verifying Access](#verifying-access)
-  - [Using IRSA](#using-irsa)
 - [Outputs](#outputs)
-  - [Cluster Information](#cluster-information)
-  - [Networking Information](#networking-information)
-  - [Security Information](#security-information)
-  - [Node Groups](#node-groups)
-  - [Commands](#commands)
 - [Troubleshooting](#troubleshooting)
-  - [Common Issues](#common-issues)
-  - [Getting Help](#getting-help)
 - [Module Structure](#module-structure)
 - [Production Readiness](#production-readiness)
-  - [Included Production Features](#included-production-features)
-  - [Production Configuration Required](#production-configuration-required)
-  - [Production Checklist](#production-checklist)
 - [Best Practices](#best-practices)
 - [Contributing](#contributing)
 - [License](#license)
@@ -176,7 +146,7 @@ terraform plan -var-file=terraform.tfvars
 terraform apply -var-file=terraform.tfvars
 ```
 
-**Note**: While Terraform automatically loads `terraform.tfvars` if present, explicitly specifying `-var-file` is recommended for clarity and when using multiple variable files.
+> **Note**: While Terraform automatically loads `terraform.tfvars` if present, explicitly specifying `-var-file` is recommended for clarity and when using multiple variable files.
 
 The deployment typically takes 15-20 minutes. The EKS cluster, node groups, and addons will be created in sequence.
 
@@ -286,7 +256,7 @@ access_entries = {
 }
 ```
 
-**Security Note**: Never commit actual IAM ARNs to version control. Use `"CURRENT_USER"` for dynamic resolution or environment variables.
+> **Security Note**: Never commit actual IAM ARNs to version control. Use `"CURRENT_USER"` for dynamic resolution or environment variables.
 
 ### Networking Configuration
 
@@ -345,7 +315,7 @@ To destroy all resources:
 terraform destroy
 ```
 
-**Warning**: This will delete the entire EKS cluster and all associated resources. Ensure you have backups of any important data.
+> **Warning**: This will delete the entire EKS cluster and all associated resources. Ensure you have backups of any important data.
 
 ## Access and Usage
 
@@ -638,4 +608,4 @@ For issues and questions:
 
 ---
 
-**Note**: This module creates billable AWS resources. Monitor your AWS costs and clean up resources when not in use.
+> **Note**: This module creates billable AWS resources. Monitor your AWS costs and clean up resources when not in use.

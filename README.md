@@ -4,24 +4,24 @@ A Terraform module for deploying a complete AWS EKS (Elastic Kubernetes Service)
 
 ## Table of Contents
 
-- [Features](#features)
-- [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Deployment](#deployment)
-- [Access and Usage](#access-and-usage)
-- [Outputs](#outputs)
-- [Troubleshooting](#troubleshooting)
-- [Module Structure](#module-structure)
-- [Production Readiness](#production-readiness)
-- [Best Practices](#best-practices)
-- [Contributing](#contributing)
-- [License](#license)
-- [Resources](#resources)
-- [Support](#support)
+- [Features](#-features)
+- [Architecture](#️-architecture)
+- [Prerequisites](#-prerequisites)
+- [Quick Start](#-quick-start)
+- [Configuration](#️-configuration)
+- [Deployment](#-deployment)
+- [Access and Usage](#-access-and-usage)
+- [Outputs](#-outputs)
+- [Troubleshooting](#-troubleshooting)
+- [Module Structure](#-module-structure)
+- [Production Readiness](#-production-readiness)
+- [Best Practices](#-best-practices)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Resources](#-resources)
+- [Support](#-support)
 
-## Features
+## ✨ Features
 
 - **Modular Architecture**: Clean separation of concerns with dedicated modules for networking, security, and compute
 - **EKS Access Entries**: Modern authentication using AWS EKS access entries with dynamic principal resolution
@@ -32,7 +32,7 @@ A Terraform module for deploying a complete AWS EKS (Elastic Kubernetes Service)
 - **CloudWatch Logging**: Cluster logging enabled for audit and troubleshooting
 - **Flexible Configuration**: Comprehensive variables for customization without code changes
 
-## Architecture
+## 🏗️ Architecture
 
 The module is organized into the following components:
 
@@ -60,7 +60,7 @@ The module is organized into the following components:
 - **Access Entries**: Modern EKS authentication replacing aws-auth ConfigMap
 - **IRSA**: Secure integration between Kubernetes service accounts and AWS IAM
 
-## Prerequisites
+## 📋 Prerequisites
 
 Before deploying this module, ensure you have:
 
@@ -88,7 +88,7 @@ Before deploying this module, ensure you have:
    helm version
    ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ### 1. Clone the Repository
 
@@ -165,7 +165,7 @@ kubectl get nodes
 kubectl get pods -A
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 ### Required Variables
 
@@ -280,7 +280,7 @@ cluster_endpoint_public_access  = true
 cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict in production
 ```
 
-## Deployment
+## 🚢 Deployment
 
 ### Standard Deployment
 
@@ -317,7 +317,7 @@ terraform destroy
 
 > **Warning**: This will delete the entire EKS cluster and all associated resources. Ensure you have backups of any important data.
 
-## Access and Usage
+## 🔐 Access and Usage
 
 ### Configuring kubectl
 
@@ -360,7 +360,7 @@ metadata:
     eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/my-app-role
 ```
 
-## Outputs
+## 📤 Outputs
 
 The module provides comprehensive outputs:
 
@@ -399,7 +399,7 @@ View all outputs:
 terraform output
 ```
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 ### Common Issues
 
@@ -443,7 +443,7 @@ aws eks list-associated-access-policies --cluster-name <cluster-name> --principa
 3. Check AWS CloudWatch logs for EKS cluster
 4. Review node group logs in CloudWatch
 
-## Module Structure
+## 📁 Module Structure
 
 ```
 .
@@ -470,7 +470,7 @@ aws eks list-associated-access-policies --cluster-name <cluster-name> --principa
 └── outputs.tf                    # Root outputs
 ```
 
-## Production Readiness
+## 🏭 Production Readiness
 
 This module provides a solid foundation for EKS clusters, but additional configuration is required for production workloads:
 
@@ -565,7 +565,7 @@ Before deploying to production, ensure:
 - [ ] Security scanning tools enabled
 - [ ] Cost monitoring and alerts configured
 
-## Best Practices
+## 💡 Best Practices
 
 1. **State Management**: Use remote state backend (S3 + DynamoDB) for team collaboration
 2. **Secrets**: Never commit `terraform.tfvars` with sensitive data
@@ -578,7 +578,7 @@ Before deploying to production, ensure:
 9. **Documentation**: Document all custom configurations and procedures
 10. **Review**: Regular security and cost reviews
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please:
 
@@ -588,18 +588,18 @@ Contributions are welcome! Please:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
+## 📄 License
 
 See [LICENSE](LICENSE) file for details.
 
-## Resources
+## 📚 Resources
 
 - [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [AWS EKS User Guide](https://docs.aws.amazon.com/eks/latest/userguide/)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
 - [EKS Best Practices Guide](https://aws.github.io/aws-eks-best-practices/)
 
-## Support
+## 💬 Support
 
 For issues and questions:
 - Open an issue on GitHub

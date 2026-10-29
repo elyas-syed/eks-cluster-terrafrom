@@ -49,7 +49,11 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "List of availability zones"
   type        = list(string)
-  default     = ["us-west-2a", "us-west-2b"]
+  default     = []
+  validation {
+    condition     = length(var.availability_zones) == 0 || length(var.availability_zones) == length(var.private_subnet_cidrs)
+    error_message = "Provide one availability zone per private subnet, or leave availability_zones empty for discovery."
+  }
 }
 
 variable "public_subnet_cidrs" {
@@ -62,6 +66,10 @@ variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.20.0/24"]
+  validation {
+    condition     = length(var.private_subnet_cidrs) >= 2 && length(var.private_subnet_cidrs) == length(var.public_subnet_cidrs)
+    error_message = "Provide matching public/private subnet lists across at least two availability zones."
+  }
 }
 
 # ==============================================================================
@@ -75,15 +83,23 @@ variable "cluster_endpoint_private_access" {
 }
 
 variable "cluster_endpoint_public_access" {
-  description = "Enable public API server endpoint"
+  description = "Enable public API server endpoint (requires explicit allowed CIDRs)"
   type        = bool
-  default     = true
+  default     = false
+  validation {
+    condition     = var.cluster_endpoint_private_access || var.cluster_endpoint_public_access
+    error_message = "Enable at least one cluster endpoint."
+  }
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
   description = "List of CIDR blocks that can access the public API server endpoint"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
+  validation {
+    condition     = !var.cluster_endpoint_public_access || (length(var.cluster_endpoint_public_access_cidrs) > 0 && alltrue([for cidr in var.cluster_endpoint_public_access_cidrs : can(cidrnetmask(cidr)) && cidr != "0.0.0.0/0"]))
+    error_message = "Public API access requires explicit IPv4 CIDRs narrower than 0.0.0.0/0."
+  }
 }
 
 variable "cluster_enabled_log_types" {
@@ -130,7 +146,7 @@ variable "node_groups" {
 
   default = {
     general = {
-      instance_types = ["t3.micro"]
+      instance_types = ["t3.medium"]
       capacity_type  = "ON_DEMAND"
       ami_type       = "AL2023_x86_64_STANDARD" # AL2023 required for Kubernetes 1.33+
       disk_size      = 20
@@ -143,6 +159,15 @@ variable "node_groups" {
       }
     }
   }
+  validation {
+    condition     = alltrue([for group in values(var.node_groups) : group.min_size >= 0 && group.min_size <= group.desired_size && group.desired_size <= group.max_size && group.max_size >= 1])
+    error_message = "Node group sizes must satisfy 0 <= min_size <= desired_size <= max_size, with max_size >= 1."
+  }
+  validation {
+    condition     = alltrue([for group in values(var.node_groups) : !group.use_custom_launch_template || group.launch_template_name != null])
+    error_message = "An existing launch_template_name is required when use_custom_launch_template is true."
+  }
+
 }
 
 # EKS Addons configuration
@@ -162,6 +187,11 @@ variable "cluster_addons" {
     kube-proxy         = {}
     aws-ebs-csi-driver = {}
   }
+  validation {
+    condition     = alltrue([for name in keys(var.cluster_addons) : contains(["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver"], name)])
+    error_message = "Supported add-ons: vpc-cni, coredns, kube-proxy, aws-ebs-csi-driver."
+  }
+
 }
 
 # Access entries (new EKS feature)
@@ -182,13 +212,21 @@ variable "access_entries" {
     }))
   }))
   default = {}
+  validation {
+    condition     = var.bootstrap_cluster_creator_admin_permissions || length(var.access_entries) > 0
+    error_message = "Configure access_entries explicitly, or enable bootstrap_cluster_creator_admin_permissions."
+  }
+  validation {
+    condition     = length(var.access_entries) == 0 || var.authentication_mode != "CONFIG_MAP"
+    error_message = "Access entries require API or API_AND_CONFIG_MAP authentication."
+  }
 }
 
 # Authentication mode
 variable "authentication_mode" {
   description = "The authentication mode for the cluster"
   type        = string
-  default     = "API_AND_CONFIG_MAP"
+  default     = "API"
 
   validation {
     condition     = contains(["CONFIG_MAP", "API", "API_AND_CONFIG_MAP"], var.authentication_mode)
@@ -206,4 +244,15 @@ variable "tags" {
   default = {
     "ManagedBy" = "Terraform"
   }
+}
+variable "cluster_log_retention_days" {
+  description = "CloudWatch control-plane log retention in days"
+  type        = number
+  default     = 30
+}
+
+variable "bootstrap_cluster_creator_admin_permissions" {
+  description = "Grant permanent bootstrap admin to the creator. Set true when upgrading clusters created with the previous default to avoid replacement."
+  type        = bool
+  default     = false
 }

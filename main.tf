@@ -32,13 +32,17 @@ provider "aws" {
 # INFRASTRUCTURE MODULES
 # ==============================================================================
 
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
 # Networking Infrastructure
 module "networking" {
   source = "./infrastructure/networking"
 
   cluster_name         = var.cluster_name
   vpc_cidr             = var.vpc_cidr
-  availability_zones   = var.availability_zones
+  availability_zones   = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, length(var.private_subnet_cidrs))
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   environment          = var.environment
@@ -62,9 +66,10 @@ module "security" {
 module "eks_cluster" {
   source = "./infrastructure/compute"
 
-  cluster_name              = var.cluster_name
-  cluster_version           = var.cluster_version
-  cluster_enabled_log_types = var.cluster_enabled_log_types
+  cluster_name               = var.cluster_name
+  cluster_version            = var.cluster_version
+  cluster_enabled_log_types  = var.cluster_enabled_log_types
+  cluster_log_retention_days = var.cluster_log_retention_days
 
   vpc_id                               = module.networking.vpc_id
   private_subnet_ids                   = module.networking.private_subnet_ids
@@ -84,9 +89,10 @@ module "eks_cluster" {
   cluster_addons = {
     for k, v in var.cluster_addons : k => v if k != "aws-ebs-csi-driver"
   }
-  access_entries          = var.access_entries
-  authentication_mode     = var.authentication_mode
-  ebs_csi_driver_role_arn = null # Not used - EBS CSI addon created in root module
+  access_entries                              = var.access_entries
+  authentication_mode                         = var.authentication_mode
+  bootstrap_cluster_creator_admin_permissions = var.bootstrap_cluster_creator_admin_permissions
+  ebs_csi_driver_role_arn                     = null # Not used - EBS CSI addon created in root module
 
   environment = var.environment
   tags        = var.tags
@@ -121,7 +127,8 @@ resource "aws_eks_addon" "ebs_csi" {
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "aws-ebs-csi-driver"
   addon_version               = var.cluster_addons["aws-ebs-csi-driver"].addon_version != null ? var.cluster_addons["aws-ebs-csi-driver"].addon_version : data.aws_eks_addon_version.ebs_csi[0].version
-  service_account_role_arn    = module.irsa.ebs_csi_driver_role_arn
+  service_account_role_arn    = coalesce(var.cluster_addons["aws-ebs-csi-driver"].service_account_role_arn, module.irsa.ebs_csi_driver_role_arn)
+  configuration_values        = var.cluster_addons["aws-ebs-csi-driver"].configuration_values
   resolve_conflicts_on_create = try(var.cluster_addons["aws-ebs-csi-driver"].resolve_conflicts_on_create, "OVERWRITE")
   resolve_conflicts_on_update = try(var.cluster_addons["aws-ebs-csi-driver"].resolve_conflicts_on_update, "OVERWRITE")
 
@@ -139,28 +146,10 @@ resource "aws_eks_addon" "ebs_csi" {
 # EKS ACCESS POLICY ASSOCIATIONS FOR ACCESS ENTRIES
 # ==============================================================================
 
-# Data source to get current AWS caller identity
-data "aws_caller_identity" "current" {}
-
-# Grant cluster-admin permissions to access entry users via AWS EKS access policies
-# This works with API or API_AND_CONFIG_MAP authentication mode
-resource "aws_eks_access_policy_association" "cluster_admin" {
-  for_each = {
-    for k, v in var.access_entries : k => v
-    if try(v.grant_cluster_admin, false) == true
-  }
-
-  cluster_name  = module.eks_cluster.cluster_name
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-  principal_arn = each.value.principal_arn == "CURRENT_USER" ? data.aws_caller_identity.current.arn : each.value.principal_arn
-
-  access_scope {
-    type = "cluster"
-  }
-
-  depends_on = [
-    module.eks_cluster,
-  ]
+# Preserve existing policy associations when ownership moves into compute.
+moved {
+  from = aws_eks_access_policy_association.cluster_admin
+  to   = module.eks_cluster.aws_eks_access_policy_association.cluster_admin
 }
 
 # Platform Add-ons (Optional) - Commented out for initial deployment

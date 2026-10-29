@@ -97,6 +97,15 @@ variable "node_groups" {
       max_unavailable_percentage = optional(number, 25)
     }), {})
   }))
+  validation {
+    condition     = alltrue([for group in values(var.node_groups) : group.min_size >= 0 && group.min_size <= group.desired_size && group.desired_size <= group.max_size && group.max_size >= 1])
+    error_message = "Node group sizes must satisfy 0 <= min_size <= desired_size <= max_size, with max_size >= 1."
+  }
+  validation {
+    condition     = alltrue([for group in values(var.node_groups) : !group.use_custom_launch_template || group.launch_template_name != null])
+    error_message = "An existing launch_template_name is required when use_custom_launch_template is true."
+  }
+
 }
 
 variable "environment" {
@@ -125,10 +134,18 @@ variable "cluster_addons" {
 variable "access_entries" {
   description = "Map of access entries to add to the cluster"
   type = map(object({
-    kubernetes_groups = optional(list(string))
-    principal_arn     = string
-    type              = optional(string, "STANDARD")
-    user_name         = optional(string)
+    kubernetes_groups   = optional(list(string))
+    principal_arn       = string
+    type                = optional(string, "STANDARD")
+    user_name           = optional(string)
+    grant_cluster_admin = optional(bool, false) # Grant cluster-admin ClusterRole via RBAC
+    access_policy = optional(object({
+      policy_name = string
+      access_scope = optional(object({
+        type       = optional(string, "cluster")
+        namespaces = optional(list(string))
+      }))
+    }))
   }))
   default = {}
 }
@@ -143,4 +160,15 @@ variable "ebs_csi_driver_role_arn" {
   description = "ARN of the IAM role for EBS CSI driver"
   type        = string
   default     = null # Make it optional
+}
+variable "cluster_log_retention_days" {
+  description = "CloudWatch control-plane log retention in days"
+  type        = number
+  default     = 30
+}
+
+variable "bootstrap_cluster_creator_admin_permissions" {
+  description = "Grant permanent bootstrap admin to the creator. Set true when upgrading clusters created with the previous default to avoid replacement."
+  type        = bool
+  default     = false
 }

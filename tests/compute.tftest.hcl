@@ -1,4 +1,8 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_caller_identity" { defaults = { arn = "arn:aws:sts::123456789012:assumed-role/Admin/session" } }
+  mock_data "aws_iam_session_context" { defaults = { issuer_arn = "arn:aws:iam::123456789012:role/team/Admin" } }
+  mock_data "aws_partition" { defaults = { partition = "aws" } }
+}
 mock_provider "tls" {}
 
 variables {
@@ -57,4 +61,62 @@ run "addon_version_override" {
     condition     = aws_eks_addon.vpc_cni[0].addon_version == "v1.99.0-eksbuild.1" && length(data.aws_eks_addon_version.compatible) == 0
     error_message = "Explicit add-on versions must bypass automatic discovery."
   }
+}
+
+run "scoped_access" {
+  command = plan
+  module { source = "./infrastructure/compute" }
+  variables {
+    access_entries = {
+      admin = { principal_arn = "CURRENT_USER", grant_cluster_admin = true }
+      viewer = {
+        principal_arn = "arn:aws:iam::123456789012:role/Viewer"
+        access_policy = {
+          policy_name  = "AmazonEKSViewPolicy"
+          access_scope = { type = "namespace", namespaces = ["apps"] }
+        }
+      }
+    }
+  }
+  assert {
+    condition     = aws_eks_access_entry.main["admin"].principal_arn == "arn:aws:iam::123456789012:role/team/Admin"
+    error_message = "CURRENT_USER must resolve STS sessions to the IAM role with its path."
+  }
+  assert {
+    condition     = aws_eks_access_policy_association.scoped["viewer"].access_scope[0].type == "namespace" && contains(aws_eks_access_policy_association.scoped["viewer"].access_scope[0].namespaces, "apps")
+    error_message = "Viewer access must be restricted to the requested namespace."
+  }
+}
+
+run "existing_launch_template" {
+  command = plan
+  module { source = "./infrastructure/compute" }
+  variables {
+    node_groups = {
+      custom = {
+        instance_types             = ["t3.medium"]
+        min_size                   = 1
+        max_size                   = 2
+        desired_size               = 1
+        use_custom_launch_template = true
+        launch_template_name       = "existing-template"
+        launch_template_version    = "2"
+      }
+    }
+  }
+  assert {
+    condition     = length(aws_launch_template.node_group) == 0 && aws_eks_node_group.main["custom"].launch_template[0].name == "existing-template"
+    error_message = "Existing launch templates must be reused without creating another template."
+  }
+}
+
+run "reject_invalid_scaling" {
+  command = plan
+  module { source = "./infrastructure/compute" }
+  variables {
+    node_groups = {
+      invalid = { instance_types = ["t3.medium"], min_size = 3, desired_size = 1, max_size = 2 }
+    }
+  }
+  expect_failures = [var.node_groups]
 }

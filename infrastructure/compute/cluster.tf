@@ -17,7 +17,8 @@ resource "aws_eks_cluster" "main" {
 
   # Authentication mode for access entries
   access_config {
-    authentication_mode = var.authentication_mode
+    authentication_mode                         = var.authentication_mode
+    bootstrap_cluster_creator_admin_permissions = var.bootstrap_cluster_creator_admin_permissions
   }
 
   # Enable logging
@@ -40,7 +41,7 @@ resource "aws_eks_cluster" "main" {
 # CloudWatch Log Group for EKS cluster
 resource "aws_cloudwatch_log_group" "cluster" {
   name              = "/aws/eks/${var.cluster_name}/cluster"
-  retention_in_days = 7
+  retention_in_days = var.cluster_log_retention_days
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-cluster-logs"

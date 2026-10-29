@@ -89,6 +89,7 @@ module "eks_cluster" {
   cluster_addons = {
     for k, v in var.cluster_addons : k => v if k != "aws-ebs-csi-driver"
   }
+  pod_identity_associations                   = var.pod_identity_associations
   access_entries                              = var.access_entries
   authentication_mode                         = var.authentication_mode
   bootstrap_cluster_creator_admin_permissions = var.bootstrap_cluster_creator_admin_permissions
@@ -97,7 +98,6 @@ module "eks_cluster" {
   environment = var.environment
   tags        = var.tags
 
-  depends_on = [module.networking, module.security]
 }
 
 # IRSA (IAM Roles for Service Accounts) - Created after EKS cluster

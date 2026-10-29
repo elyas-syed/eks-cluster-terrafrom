@@ -94,8 +94,7 @@ output "oidc_provider_arn" {
   value       = module.eks_cluster.oidc_provider_arn
 }
 
-# Comment out until platform_ingress module is properly configured
-# output "aws_load_balancer_controller_role_arn" {
-#   description = "ARN of the AWS Load Balancer Controller IAM role"
-#   value       = module.platform_ingress.aws_load_balancer_controller_role_arn
-# }
+output "aws_load_balancer_controller_role_arn" {
+  description = "IAM role for the separately installed AWS Load Balancer Controller"
+  value       = module.irsa.aws_load_balancer_controller_role_arn
+}

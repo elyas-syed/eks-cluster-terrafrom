@@ -46,7 +46,7 @@ run "node_configuration" {
     error_message = "Node update limits must be preserved."
   }
   assert {
-    condition     = aws_eks_node_group.main["general"].ami_type == "AL2023_x86_64_STANDARD"
+    condition     = aws_eks_node_group.main["general"].ami_type == "AL2023_x86_64_STANDARD" && aws_eks_node_group.main["general"].version == "1.37"
     error_message = "Nodes must default to AL2023."
   }
 }

@@ -1,611 +1,190 @@
-# AWS EKS Cluster Terraform Module
+# Amazon EKS with Terraform
 
-A Terraform module for deploying a complete AWS EKS (Elastic Kubernetes Service) cluster with best practices for security, networking, and scalability. This module provides a solid foundation that can be configured for development, staging, or production environments.
+Deploy an EKS cluster with managed AL2023 node groups, private worker subnets,
+IAM access entries, IRSA, Pod Identity support, and managed EKS add-ons.
+The supported deployment starts at this repository's root. The `terraform/`
+directory is legacy reference code and must not be applied alongside the root.
 
-## Table of Contents
+The default Kubernetes target is **1.37**, verified against the AWS EKS API in
+`us-east-1` on October 29, 2026. Kubernetes versions remain explicit: new AWS
+releases do not silently upgrade your cluster. Add-ons without an explicit
+`addon_version` use AWS's recommended compatible version for the selected
+Kubernetes version and region. Pin add-on versions in release configurations
+when repeatable upgrades are required.
 
-- [Features](#-features)
-- [Architecture](#️-architecture)
-- [Prerequisites](#-prerequisites)
-- [Quick Start](#-quick-start)
-- [Configuration](#️-configuration)
-- [Deployment](#-deployment)
-- [Access and Usage](#-access-and-usage)
-- [Outputs](#-outputs)
-- [Troubleshooting](#-troubleshooting)
-- [Module Structure](#-module-structure)
-- [Production Readiness](#-production-readiness)
-- [Best Practices](#-best-practices)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Resources](#-resources)
-- [Support](#-support)
+## Requirements
 
-## ✨ Features
+- Terraform 1.10 or newer, below 2.0 (CI uses 1.12.2).
+- AWS CLI v2, with credentials for the target account and permissions to create
+  EKS, EC2/VPC, IAM, and CloudWatch resources. Worker-node policies alone are
+  **not** sufficient deployment permissions.
+- Sufficient VPC, elastic IP, EC2, and EKS quotas in the selected region.
+- kubectl compatible with the selected Kubernetes version; Helm for optional
+  platform components.
+- Network access to the cluster API from the machine running platform tooling.
+  The API is private by default. Public access requires explicit allowed CIDRs;
+  `0.0.0.0/0` is rejected.
 
-- **Modular Architecture**: Clean separation of concerns with dedicated modules for networking, security, and compute
-- **EKS Access Entries**: Modern authentication using AWS EKS access entries with dynamic principal resolution
-- **IRSA Support**: IAM Roles for Service Accounts (IRSA) for secure pod-to-AWS-service communication
-- **Managed Node Groups**: Support for both on-demand and spot instances with launch templates
-- **EKS Addons**: Pre-configured essential addons (VPC CNI, CoreDNS, kube-proxy, EBS CSI driver)
-- **Security Best Practices**: Properly configured security groups, IAM roles, and network isolation
-- **CloudWatch Logging**: Cluster logging enabled for audit and troubleshooting
-- **Flexible Configuration**: Comprehensive variables for customization without code changes
-
-## 🏗️ Architecture
-
-The module is organized into the following components:
-
-```
-├── infrastructure/
-│   ├── networking/          # VPC, subnets, NAT gateways, route tables
-│   ├── security/           # Security groups, IAM roles, IRSA
-│   └── compute/            # EKS cluster, node groups, addons, access entries
-├── platform/               # Optional platform components (ingress, monitoring)
-├── 00-bootstrap/           # Terraform state backend setup
-└── main.tf                 # Root module orchestrating all components
-```
-
-### Network Architecture
-
-- **VPC**: Custom CIDR with public and private subnets across multiple availability zones
-- **Public Subnets**: Internet-facing resources (NAT gateways, load balancers)
-- **Private Subnets**: EKS control plane and worker nodes
-- **NAT Gateways**: High availability NAT for outbound internet access from private subnets
-
-### Security Architecture
-
-- **Security Groups**: Separate security groups for cluster and node groups with least-privilege rules
-- **IAM Roles**: Dedicated roles for cluster, node groups, and service accounts
-- **Access Entries**: Modern EKS authentication replacing aws-auth ConfigMap
-- **IRSA**: Secure integration between Kubernetes service accounts and AWS IAM
-
-## 📋 Prerequisites
-
-Before deploying this module, ensure you have:
-
-1. **AWS Account** with appropriate permissions
-   - Required IAM permissions for EKS, EC2, VPC, IAM, CloudWatch
-   - Minimum permissions: `AmazonEKSClusterPolicy`, `AmazonEKSWorkerNodePolicy`, `AmazonEC2ContainerRegistryReadOnly`
-
-2. **Terraform** (>= 1.0)
-   ```bash
-   terraform version
-   ```
-
-3. **AWS CLI** configured with credentials
-   ```bash
-   aws sts get-caller-identity
-   ```
-
-4. **kubectl** (for cluster interaction)
-   ```bash
-   kubectl version --client
-   ```
-
-5. **Helm** (optional, for platform components)
-   ```bash
-   helm version
-   ```
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
+## Deploy a development cluster
 
 ```bash
-git clone https://github.com/your-org/dev-eks-cluster-terrafrom.git
-cd dev-eks-cluster-terrafrom
+git clone https://github.com/elyas-syed/eks-cluster-terrafrom.git
+cd eks-cluster-terrafrom
+aws sts get-caller-identity
+cp environments/dev.tfvars.example terraform.tfvars
 ```
 
-### 2. Configure Variables
-
-Create a `terraform.tfvars` file (this file is gitignored):
-
-```hcl
-cluster_name    = "my-eks-cluster"
-cluster_version = "1.34"  # Latest version. See upgrade notes below.
-aws_region      = "us-west-2"
-environment     = "dev"
-
-# Node groups configuration
-node_groups = {
-  general = {
-    instance_types = ["t3.medium"]
-    capacity_type  = "ON_DEMAND"
-    min_size       = 1
-    max_size       = 5
-    desired_size   = 3
-  }
-}
-
-# Access entries - use "CURRENT_USER" for dynamic resolution
-access_entries = {
-  admin = {
-    principal_arn       = "CURRENT_USER"
-    grant_cluster_admin = true
-    type                = "STANDARD"
-  }
-}
-```
-
-### 3. Initialize Terraform
+Edit `terraform.tfvars`: choose a unique cluster name and region and replace the
+example public CIDR with your public IP followed by `/32`. Alternatively, retain
+a private API and run tooling from a connected network. When availability zones
+are omitted, the module discovers zones in the chosen region; public and private
+subnet CIDR lists must have the same length, with at least two subnets each.
 
 ```bash
 terraform init
-```
-
-### 4. Review the Plan
-
-```bash
-terraform plan -var-file=terraform.tfvars
-```
-
-### 5. Deploy
-
-```bash
-terraform apply -var-file=terraform.tfvars
-```
-
-> **Note**: While Terraform automatically loads `terraform.tfvars` if present, explicitly specifying `-var-file` is recommended for clarity and when using multiple variable files.
-
-The deployment typically takes 15-20 minutes. The EKS cluster, node groups, and addons will be created in sequence.
-
-### 6. Configure kubectl
-
-After deployment completes, configure kubectl:
-
-```bash
-aws eks update-kubeconfig --region us-west-2 --name my-eks-cluster
-```
-
-Verify access:
-
-```bash
+terraform validate
+terraform plan -out=cluster.tfplan
+terraform apply cluster.tfplan
+aws eks update-kubeconfig --region us-east-1 --name my-dev-eks
 kubectl get nodes
 kubectl get pods -A
 ```
 
-## ⚙️ Configuration
+This creates billable resources, including one NAT gateway per availability
+zone, the EKS control plane, EC2 nodes, EBS volumes, and CloudWatch logs.
+The development example uses two `t3.medium` nodes. Change sizing deliberately;
+autoscaling group limits alone do not install a node autoscaler.
 
-### Required Variables
+## Access and workload identity
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `cluster_name` | Unique name for the EKS cluster | `"my-eks-cluster"` |
-| `cluster_version` | Kubernetes version (latest: 1.34) | `"1.34"` |
-| `aws_region` | AWS region for deployment | `"us-west-2"` |
-
-### Node Groups Configuration
-
-Node groups support both on-demand and spot instances:
-
-```hcl
-node_groups = {
-  general = {
-    instance_types = ["t3.medium"]
-    capacity_type  = "ON_DEMAND"
-    min_size       = 1
-    max_size       = 5
-    desired_size   = 3
-    disk_size      = 50
-    labels = {
-      "node-type" = "general"
-      "workload"  = "general-purpose"
-    }
-  }
-  
-  spot = {
-    instance_types = ["t3.medium", "t3.large"]
-    capacity_type  = "SPOT"
-    min_size       = 0
-    max_size       = 10
-    desired_size   = 2
-    taints = [{
-      key    = "spot-instance"
-      value  = "true"
-      effect = "NO_SCHEDULE"
-    }]
-  }
-}
-```
-
-### EKS Addons
-
-Configure essential EKS addons:
-
-```hcl
-cluster_addons = {
-  vpc-cni = {
-    addon_version = "v1.21.1-eksbuild.1"  # Latest for 1.34
-  }
-  coredns = {
-    addon_version = "v1.12.4-eksbuild.1"  # Latest for 1.34
-  }
-  kube-proxy = {
-    addon_version = "v1.34.1-eksbuild.2"  # Latest for 1.34
-  }
-  aws-ebs-csi-driver = {
-    addon_version = "v1.54.0-eksbuild.1"  # Latest for 1.34
-  }
-}
-```
-
-### Access Entries
-
-Configure cluster access using EKS access entries:
+New clusters use API authentication and explicit access entries. Bootstrap creator
+admin is disabled to avoid permanent implicit access. `CURRENT_USER` resolves an
+IAM user directly or an STS assumed-role session to its persistent IAM role ARN.
+For shared environments, prefer explicit role ARNs so deployment identity changes
+do not unexpectedly change cluster access.
 
 ```hcl
 access_entries = {
   admin = {
-    principal_arn       = "CURRENT_USER"  # Dynamically resolves to current AWS caller
-    grant_cluster_admin = true             # Grants cluster-admin permissions
-    type                = "STANDARD"
+    principal_arn       = "arn:aws:iam::123456789012:role/PlatformAdmin"
+    grant_cluster_admin = true
   }
-  
-  developer = {
-    principal_arn = "arn:aws:iam::123456789012:user/developer"
-    # Use access_policy for fine-grained permissions
+  viewer = {
+    principal_arn = "arn:aws:iam::123456789012:role/AppViewer"
     access_policy = {
-      policy_name = "AmazonEKSViewPolicy"
-      access_scope = {
-        type = "namespace"
-        namespaces = ["default", "development"]
-      }
+      policy_name  = "AmazonEKSViewPolicy"
+      access_scope = { type = "namespace", namespaces = ["apps"] }
     }
   }
 }
 ```
 
-> **Security Note**: Never commit actual IAM ARNs to version control. Use `"CURRENT_USER"` for dynamic resolution or environment variables.
+EBS CSI and the optional Load Balancer Controller use dedicated IRSA roles. The
+Pod Identity Agent is enabled by default; optional `pod_identity_associations`
+map a namespace and service account to an existing IAM role. That role must trust
+`pods.eks.amazonaws.com` for `sts:AssumeRole` and `sts:TagSession`. Create the
+Kubernetes service account separately. Association does not create it.
 
-### Networking Configuration
+The baseline retains the VPC CNI policy on the node role for compatibility.
+Production deployments should assess isolating that permission to the CNI
+service account and limiting pod access to instance credentials.
 
-Customize VPC and networking:
+## Optional ingress and HPA metrics
 
-```hcl
-vpc_cidr = "10.0.0.0/16"
-availability_zones = ["us-west-2a", "us-west-2b"]
-
-public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
-```
-
-### Cluster Endpoint Configuration
-
-Control cluster API access:
-
-```hcl
-cluster_endpoint_private_access = true
-cluster_endpoint_public_access  = true
-cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]  # Restrict in production
-```
-
-## 🚢 Deployment
-
-### Standard Deployment
+Apply `platform/ingress` separately **after** the infrastructure root finishes.
+It installs AWS Load Balancer Controller 3.6.2 and Metrics Server chart 3.14.0.
+The controller reuses the root's IRSA role; it does not create duplicate IAM roles.
+The vendored controller IAM policy comes from upstream controller release 3.6.2.
+Upgrade the chart and policy together and follow upstream CRD migration notes.
 
 ```bash
-# Initialize
-terraform init
-
-# Plan (explicitly specify var file)
-terraform plan -var-file=terraform.tfvars -out=tfplan
-
-# Apply
-terraform apply tfplan
+terraform -chdir=platform/ingress init
+terraform -chdir=platform/ingress apply \
+  -var='cluster_name=my-dev-eks' \
+  -var='aws_region=us-east-1' \
+  -var="vpc_id=$(terraform output -raw vpc_id)" \
+  -var="controller_role_arn=$(terraform output -raw aws_load_balancer_controller_role_arn)"
+bash examples/sample-app/deploy.sh
 ```
 
-### Environment-Specific Deployment
+The sample app uses a digest-pinned non-root NGINX image, probes, resource limits,
+an ALB ingress, an HPA, and a separate single-replica EBS persistence example.
+Internet-facing HTTP ingress is for demonstration; configure ACM/TLS and access
+controls before serving real workloads. Metrics Server is needed for the HPA.
 
-The repository includes environment-specific configurations:
+## State and environments
+
+Local state is the default for a quick start. Do not share it through Git.
+For teams, first apply `00-bootstrap` to create an encrypted, versioned, private
+S3 state bucket. The stack uses local state initially; preserve that bootstrap
+state securely and separately from the cluster state.
 
 ```bash
-# Use environment-specific backend
-terraform init -backend-config=environments/backend-dev.hcl
-
-# Use environment-specific variables
-terraform apply -var-file=environments/dev.tfvars
+terraform -chdir=00-bootstrap init
+terraform -chdir=00-bootstrap apply -var='aws_region=us-east-1'
+cp examples/backend.tf.example backend_override.tf
+# Edit bucket and region in environments/backend-dev.hcl using bootstrap outputs.
+terraform init -migrate-state -backend-config=environments/backend-dev.hcl
 ```
 
-### Destroying Resources
+Environment backend examples use native S3 locking (`use_lockfile = true`).
+DynamoDB locking is retained as an opt-in bootstrap setting for existing users;
+see [migration notes](docs/MIGRATION.md) before changing existing backends.
+Use distinct state keys and configuration for development and production.
+`environments/prod.tfvars.example` illustrates private API access, three AZs,
+explicit roles, and longer log retention. It is a starting point, not a complete
+production security or disaster recovery configuration.
 
-To destroy all resources:
+## Verification and cleanup
 
 ```bash
+terraform fmt -check -recursive
+terraform init -backend=false
+terraform validate
+terraform test
+# After the optional platform stack is installed, using the intended kubeconfig:
+bash scripts/smoke-test.sh
+```
+
+Tests mock AWS and do not establish live AWS compatibility by themselves. CI
+validates the root, bootstrap, and platform stacks. A live test must also check
+nodes/add-ons, DNS, ingress, storage persistence, metrics, scoped access, and an
+unchanged second plan. `scripts/smoke-test.sh` creates workloads in `eks-smoke`
+and leaves them available for inspection; it does not destroy infrastructure.
+
+Clean up workloads first so the controller can remove ALBs and target groups:
+
+```bash
+kubectl delete namespace eks-smoke --wait=true
+# If samples were deployed in default, delete their ingress and workload manifests.
+# Supply the same variables used for the platform apply:
+terraform -chdir=platform/ingress destroy -var-file=your-platform.tfvars
 terraform destroy
 ```
 
-> **Warning**: This will delete the entire EKS cluster and all associated resources. Ensure you have backups of any important data.
-
-## 🔐 Access and Usage
-
-### Configuring kubectl
-
-After deployment, configure kubectl:
-
-```bash
-aws eks update-kubeconfig --region <region> --name <cluster-name>
-```
-
-The command is also available in Terraform outputs:
-
-```bash
-terraform output kubectl_config_command
-```
-
-### Verifying Access
-
-```bash
-# Check nodes
-kubectl get nodes
-
-# Check system pods
-kubectl get pods -A
-
-# Check storage classes (EBS CSI driver)
-kubectl get storageclass
-```
-
-### Using IRSA
-
-Service accounts can assume IAM roles using IRSA. Example:
-
-```yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: my-app
-  namespace: default
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/my-app-role
-```
-
-## 📤 Outputs
-
-The module provides comprehensive outputs:
-
-### Cluster Information
-
-- `cluster_name`: Name of the EKS cluster
-- `cluster_endpoint`: API server endpoint
-- `cluster_version`: Kubernetes version
-- `cluster_arn`: ARN of the cluster
-- `cluster_certificate_authority_data`: Base64 encoded CA certificate
-
-### Networking Information
-
-- `vpc_id`: VPC ID
-- `vpc_cidr_block`: VPC CIDR block
-- `private_subnet_ids`: List of private subnet IDs
-- `public_subnet_ids`: List of public subnet IDs
-
-### Security Information
-
-- `cluster_security_group_id`: Cluster security group ID
-- `node_group_security_group_id`: Node group security group ID
-- `oidc_provider_arn`: OIDC provider ARN for IRSA
-
-### Node Groups
-
-- `node_groups`: Map of node group attributes (ARN, status, instance types)
-
-### Commands
-
-- `kubectl_config_command`: Command to configure kubectl
-
-View all outputs:
-
-```bash
-terraform output
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### Access Denied Errors
-
-**Problem**: `kubectl get nodes` returns "Forbidden"
-
-**Solution**: Ensure access entry is configured with proper permissions:
-
-```bash
-# Check access entries
-aws eks list-access-entries --cluster-name <cluster-name>
-
-# Verify access policy association
-aws eks list-associated-access-policies --cluster-name <cluster-name> --principal-arn <principal-arn>
-```
-
-#### Node Group Not Joining
-
-**Problem**: Nodes show as "NotReady" or don't appear
-
-**Solution**: 
-1. Check node group status: `aws eks describe-nodegroup --cluster-name <name> --nodegroup-name <name>`
-2. Check security group rules allow communication
-3. Verify IAM roles have correct policies attached
-4. Check CloudWatch logs: `/aws/eks/<cluster-name>/cluster`
-
-#### Addon Installation Failures
-
-**Problem**: EKS addons fail to install
-
-**Solution**:
-1. Verify addon version compatibility with cluster version
-2. Check IAM role permissions for addon service accounts
-3. Review addon logs in CloudWatch
-
-### Getting Help
-
-1. Check Terraform state: `terraform state list`
-2. Review Terraform logs: `TF_LOG=DEBUG terraform apply`
-3. Check AWS CloudWatch logs for EKS cluster
-4. Review node group logs in CloudWatch
-
-## 📁 Module Structure
-
-```
-.
-├── infrastructure/
-│   ├── compute/
-│   │   ├── cluster.tf              # EKS cluster definition
-│   │   ├── node-groups.tf          # Managed node groups
-│   │   ├── addons.tf               # EKS addons
-│   │   ├── access-entries.tf        # EKS access entries
-│   │   └── variables.tf            # Compute module variables
-│   ├── networking/
-│   │   ├── main.tf                 # VPC and networking resources
-│   │   └── variables.tf            # Networking variables
-│   └── security/
-│       ├── security-groups.tf      # Security group definitions
-│       ├── security-group-rules.tf # Security group rules
-│       ├── iam-roles.tf           # IAM roles for cluster and nodes
-│       └── irsa/                  # IRSA module
-├── platform/
-│   └── ingress/                   # AWS Load Balancer Controller
-├── 00-bootstrap/                  # Terraform state backend
-├── main.tf                       # Root module
-├── variables.tf                   # Root variables
-└── outputs.tf                    # Root outputs
-```
-
-## 🏭 Production Readiness
-
-This module provides a solid foundation for EKS clusters, but additional configuration is required for production workloads:
-
-### ✅ Included Production Features
-
-- **High Availability**: Multi-AZ deployment with private subnets across availability zones
-- **Security Groups**: Properly configured with least-privilege rules
-- **IAM Roles**: Dedicated roles for cluster, nodes, and service accounts
-- **IRSA**: Secure pod-to-AWS-service communication
-- **CloudWatch Logging**: Cluster control plane logging enabled
-- **EKS Addons**: Essential addons (VPC CNI, CoreDNS, kube-proxy, EBS CSI)
-- **Access Entries**: Modern authentication mechanism
-- **Network Isolation**: Private subnets for worker nodes
-
-### ⚠️ Production Configuration Required
-
-Before deploying to production, ensure:
-
-1. **Restrict Public Access**:
-   ```hcl
-   cluster_endpoint_public_access_cidrs = ["YOUR_OFFICE_IP/32", "YOUR_VPN_IP/32"]
-   # Or disable public access entirely:
-   cluster_endpoint_public_access = false
-   ```
-
-2. **Enable Private Endpoint Only** (recommended for production):
-   ```hcl
-   cluster_endpoint_private_access = true
-   cluster_endpoint_public_access  = false
-   ```
-
-3. **Increase Node Group Sizes**:
-   ```hcl
-   node_groups = {
-     general = {
-       min_size     = 3  # Minimum for HA
-       max_size     = 10
-       desired_size = 3
-     }
-   }
-   ```
-
-4. **Extend CloudWatch Log Retention**:
-   - Default is 7 days; increase to 30+ days for production
-   - Configure in `infrastructure/compute/cluster.tf`
-
-5. **Enable Additional Security**:
-   - Configure Pod Security Standards (PSS)
-   - Implement Network Policies
-   - Set up Resource Quotas and Limit Ranges
-   - Enable AWS GuardDuty for threat detection
-   - Configure AWS WAF if using ALB
-
-6. **Backup Strategy**:
-   - Regular backups of Terraform state
-   - Velero for Kubernetes resource backups
-   - EBS snapshot strategy for persistent volumes
-
-7. **Monitoring and Alerting**:
-   - CloudWatch Alarms for cluster health
-   - Prometheus and Grafana for metrics
-   - AlertManager for notifications
-
-8. **Disaster Recovery**:
-   - Multi-region deployment strategy
-   - Documented runbooks
-   - Regular disaster recovery drills
-
-9. **Compliance**:
-   - Enable AWS Config for compliance monitoring
-   - Implement AWS Security Hub
-   - Regular security audits
-
-10. **Cost Optimization**:
-    - Use Spot instances for non-critical workloads
-    - Right-size node groups based on actual usage
-    - Enable cluster autoscaler
-    - Monitor and optimize EBS volumes
-
-### Production Checklist
-
-- [ ] Restrict public endpoint access (CIDR whitelist or private-only)
-- [ ] Deploy across at least 3 availability zones
-- [ ] Minimum 3 nodes per node group for HA
-- [ ] Extended CloudWatch log retention (30+ days)
-- [ ] Pod Security Standards configured
-- [ ] Network Policies implemented
-- [ ] Resource quotas and limits defined
-- [ ] Backup strategy in place
-- [ ] Monitoring and alerting configured
-- [ ] Disaster recovery plan documented
-- [ ] Security scanning tools enabled
-- [ ] Cost monitoring and alerts configured
-
-## 💡 Best Practices
-
-1. **State Management**: Use remote state backend (S3 + DynamoDB) for team collaboration
-2. **Secrets**: Never commit `terraform.tfvars` with sensitive data
-3. **Access Control**: Use least-privilege access policies
-4. **Versioning**: Pin Terraform and provider versions
-5. **Tagging**: Use consistent tags for resource management
-6. **Monitoring**: Enable CloudWatch logging and monitoring
-7. **Backup**: Regular backups of Terraform state
-8. **Testing**: Test in dev environment before production
-9. **Documentation**: Document all custom configurations and procedures
-10. **Review**: Regular security and cost reviews
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-See [LICENSE](LICENSE) file for details.
-
-## 📚 Resources
-
-- [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS EKS User Guide](https://docs.aws.amazon.com/eks/latest/userguide/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [EKS Best Practices Guide](https://aws.github.io/aws-eks-best-practices/)
-
-## 💬 Support
-
-For issues and questions:
-- Open an issue on GitHub
-- Review existing issues and discussions
-- Check AWS EKS documentation
-
----
-
-> **Note**: This module creates billable AWS resources. Monitor your AWS costs and clean up resources when not in use.
+Keep the platform controller running until its load balancers are deleted.
+Confirm there are no leftover test ALBs, target groups, EBS volumes, NAT gateways,
+or elastic IPs. The bootstrap state bucket is intentionally separate and is not
+deleted by the cluster root. Preserve production data before any destruction.
+
+## Upgrades and production work
+
+Read [MIGRATION.md](docs/MIGRATION.md) before applying this version to existing
+state. Upgrade Kubernetes one minor version at a time, review EKS upgrade
+insights and deprecated APIs, update node versions and add-ons, and inspect every
+plan for replacements. Managed nodes are explicitly tied to the cluster's
+configured Kubernetes version.
+
+Production extensions should be selected by need: workload network policies,
+Pod Security admission, backup/restore, monitoring and alarms, Secrets Manager,
+GuardDuty, and node autoscaling. Auto Mode and Karpenter are follow-up deployment
+options; neither is installed by this baseline.
+
+## References
+
+- [EKS versions](https://docs.aws.amazon.com/eks/latest/userguide/kubernetes-versions.html)
+- [EKS best practices](https://docs.aws.amazon.com/eks/latest/best-practices/introduction.html)
+- [S3 backend and locking](https://developer.hashicorp.com/terraform/language/backend/s3)
+- [Controller IAM policy source](https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/v3.6.2/docs/install/iam_policy.json)
+
+Licensed under GPL-3.0; see [LICENSE](LICENSE).

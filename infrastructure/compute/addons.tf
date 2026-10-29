@@ -89,3 +89,24 @@ resource "aws_eks_addon" "kube_proxy" {
 #     Name = "${var.cluster_name}-cloudwatch-observability"
 #   })
 # }
+resource "aws_eks_addon" "pod_identity" {
+  count                       = contains(keys(var.cluster_addons), "eks-pod-identity-agent") ? 1 : 0
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  addon_version               = var.cluster_addons["eks-pod-identity-agent"].addon_version != null ? var.cluster_addons["eks-pod-identity-agent"].addon_version : data.aws_eks_addon_version.compatible["eks-pod-identity-agent"].version
+  configuration_values        = var.cluster_addons["eks-pod-identity-agent"].configuration_values
+  resolve_conflicts_on_create = var.cluster_addons["eks-pod-identity-agent"].resolve_conflicts_on_create
+  resolve_conflicts_on_update = var.cluster_addons["eks-pod-identity-agent"].resolve_conflicts_on_update
+  depends_on                  = [aws_eks_node_group.main]
+  tags                        = var.tags
+}
+
+resource "aws_eks_pod_identity_association" "workload" {
+  for_each        = var.pod_identity_associations
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = each.value.namespace
+  service_account = each.value.service_account
+  role_arn        = each.value.role_arn
+  depends_on      = [aws_eks_addon.pod_identity]
+  tags            = var.tags
+}

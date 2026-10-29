@@ -172,3 +172,17 @@ variable "bootstrap_cluster_creator_admin_permissions" {
   type        = bool
   default     = false
 }
+
+variable "pod_identity_associations" {
+  description = "Workload service accounts mapped to existing IAM roles that trust pods.eks.amazonaws.com"
+  type = map(object({
+    namespace       = string
+    service_account = string
+    role_arn        = string
+  }))
+  default = {}
+  validation {
+    condition     = length(var.pod_identity_associations) == 0 || contains(keys(var.cluster_addons), "eks-pod-identity-agent")
+    error_message = "Pod Identity associations require the eks-pod-identity-agent add-on."
+  }
+}

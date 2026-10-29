@@ -24,3 +24,8 @@ variable "enable_remote_state" {
   type        = bool
   default     = true
 }
+variable "enable_dynamodb_locking" {
+  description = "Legacy state locking. Keep true while migrating existing DynamoDB-backed clients."
+  type        = bool
+  default     = false
+}

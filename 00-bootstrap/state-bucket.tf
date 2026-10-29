@@ -58,6 +58,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state[0].id
 
   rule {
+    filter {}
     id     = "state_file_lifecycle"
     status = "Enabled"
 
@@ -69,4 +70,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
       days_after_initiation = 7
     }
   }
+}
+resource "aws_s3_bucket_policy" "require_tls" {
+  count  = var.enable_remote_state ? 1 : 0
+  bucket = aws_s3_bucket.terraform_state[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.terraform_state[0].arn, "${aws_s3_bucket.terraform_state[0].arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
 }

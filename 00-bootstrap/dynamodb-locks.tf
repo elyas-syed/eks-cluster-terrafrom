@@ -3,7 +3,7 @@
 # ==============================================================================
 
 resource "aws_dynamodb_table" "terraform_locks" {
-  count        = var.enable_remote_state ? 1 : 0
+  count        = var.enable_remote_state && var.enable_dynamodb_locking ? 1 : 0
   name         = "${var.project_name}-terraform-locks"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"

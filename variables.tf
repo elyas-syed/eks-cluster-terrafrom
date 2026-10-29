@@ -182,14 +182,15 @@ variable "cluster_addons" {
   }))
 
   default = {
-    vpc-cni            = {}
-    coredns            = {}
-    kube-proxy         = {}
-    aws-ebs-csi-driver = {}
+    vpc-cni                = {}
+    coredns                = {}
+    kube-proxy             = {}
+    aws-ebs-csi-driver     = {}
+    eks-pod-identity-agent = {}
   }
   validation {
-    condition     = alltrue([for name in keys(var.cluster_addons) : contains(["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver"], name)])
-    error_message = "Supported add-ons: vpc-cni, coredns, kube-proxy, aws-ebs-csi-driver."
+    condition     = alltrue([for name in keys(var.cluster_addons) : contains(["vpc-cni", "coredns", "kube-proxy", "aws-ebs-csi-driver", "eks-pod-identity-agent"], name)])
+    error_message = "Supported add-ons: vpc-cni, coredns, kube-proxy, aws-ebs-csi-driver, eks-pod-identity-agent."
   }
 
 }
@@ -255,4 +256,18 @@ variable "bootstrap_cluster_creator_admin_permissions" {
   description = "Grant permanent bootstrap admin to the creator. Set true when upgrading clusters created with the previous default to avoid replacement."
   type        = bool
   default     = false
+}
+
+variable "pod_identity_associations" {
+  description = "Workload service accounts mapped to existing IAM roles that trust pods.eks.amazonaws.com"
+  type = map(object({
+    namespace       = string
+    service_account = string
+    role_arn        = string
+  }))
+  default = {}
+  validation {
+    condition     = length(var.pod_identity_associations) == 0 || contains(keys(var.cluster_addons), "eks-pod-identity-agent")
+    error_message = "Pod Identity associations require the eks-pod-identity-agent add-on."
+  }
 }

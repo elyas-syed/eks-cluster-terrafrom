@@ -3,19 +3,11 @@
 # ==============================================================================
 
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.10, < 2.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
-    }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.11"
     }
     tls = {
       source  = "hashicorp/tls"
@@ -33,30 +25,6 @@ provider "aws" {
 
   default_tags {
     tags = var.tags
-  }
-}
-
-provider "kubernetes" {
-  host                   = module.eks_cluster.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks_cluster.cluster_certificate_authority_data)
-
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "aws"
-    args        = ["eks", "get-token", "--cluster-name", module.eks_cluster.cluster_name]
-  }
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = module.eks_cluster.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks_cluster.cluster_certificate_authority_data)
-
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      command     = "aws"
-      args        = ["eks", "get-token", "--cluster-name", module.eks_cluster.cluster_name, "--region", var.aws_region]
-    }
   }
 }
 
@@ -94,8 +62,9 @@ module "security" {
 module "eks_cluster" {
   source = "./infrastructure/compute"
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+  cluster_name              = var.cluster_name
+  cluster_version           = var.cluster_version
+  cluster_enabled_log_types = var.cluster_enabled_log_types
 
   vpc_id                               = module.networking.vpc_id
   private_subnet_ids                   = module.networking.private_subnet_ids
@@ -139,12 +108,19 @@ module "irsa" {
 
 # EBS CSI Addon - Created after IRSA to avoid circular dependency
 # This addon needs the IAM role from IRSA module
+data "aws_eks_addon_version" "ebs_csi" {
+  count              = contains(keys(var.cluster_addons), "aws-ebs-csi-driver") && try(var.cluster_addons["aws-ebs-csi-driver"].addon_version, null) == null ? 1 : 0
+  addon_name         = "aws-ebs-csi-driver"
+  kubernetes_version = var.cluster_version
+  most_recent        = false
+}
+
 resource "aws_eks_addon" "ebs_csi" {
   count = contains(keys(var.cluster_addons), "aws-ebs-csi-driver") ? 1 : 0
 
   cluster_name                = module.eks_cluster.cluster_name
   addon_name                  = "aws-ebs-csi-driver"
-  addon_version               = try(var.cluster_addons["aws-ebs-csi-driver"].addon_version, null)
+  addon_version               = var.cluster_addons["aws-ebs-csi-driver"].addon_version != null ? var.cluster_addons["aws-ebs-csi-driver"].addon_version : data.aws_eks_addon_version.ebs_csi[0].version
   service_account_role_arn    = module.irsa.ebs_csi_driver_role_arn
   resolve_conflicts_on_create = try(var.cluster_addons["aws-ebs-csi-driver"].resolve_conflicts_on_create, "OVERWRITE")
   resolve_conflicts_on_update = try(var.cluster_addons["aws-ebs-csi-driver"].resolve_conflicts_on_update, "OVERWRITE")

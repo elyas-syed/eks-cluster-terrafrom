@@ -7,8 +7,8 @@ resource "aws_eks_node_group" "main" {
   node_role_arn   = var.node_group_role_arn
   subnet_ids      = var.private_subnet_ids
 
-  capacity_type  = each.value.capacity_type
-  ami_type       = each.value.ami_type
+  capacity_type = each.value.capacity_type
+  ami_type      = each.value.ami_type
   # disk_size is specified in the launch template, not here
   instance_types = each.value.instance_types
 
@@ -19,9 +19,23 @@ resource "aws_eks_node_group" "main" {
   }
 
   # Use basic labels only
-  labels = {
+  labels = merge({
     "node-group"  = each.key
     "environment" = var.environment
+  }, each.value.labels)
+
+  dynamic "taint" {
+    for_each = each.value.taints
+    content {
+      key    = taint.value.key
+      value  = taint.value.value
+      effect = taint.value.effect
+    }
+  }
+
+  force_update_version = each.value.force_update_version
+  update_config {
+    max_unavailable_percentage = each.value.update_config.max_unavailable_percentage
   }
 
   # Launch template for enhanced features (encryption, metadata options, etc.)

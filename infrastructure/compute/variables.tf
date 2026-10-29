@@ -70,14 +70,32 @@ variable "cluster_enabled_log_types" {
 variable "node_groups" {
   description = "Map of EKS managed node group definitions"
   type = map(object({
-    instance_types             = list(string)
-    capacity_type              = optional(string)
-    ami_type                   = optional(string)
-    disk_size                  = optional(number)
-    min_size                   = number
-    max_size                   = number
-    desired_size               = number
-    use_custom_launch_template = optional(bool, false) # Add this line
+    instance_types = list(string)
+    capacity_type  = optional(string, "ON_DEMAND")
+    ami_type       = optional(string, "AL2023_x86_64_STANDARD") # AL2023 required for Kubernetes 1.33+
+    disk_size      = optional(number, 20)
+    min_size       = number
+    max_size       = number
+    desired_size   = number
+
+    # Advanced features from public module
+    labels = optional(map(string), {})
+    taints = optional(list(object({
+      key    = string
+      value  = optional(string)
+      effect = string
+    })), [])
+
+    # Launch template configuration
+    use_custom_launch_template = optional(bool, false)
+    launch_template_name       = optional(string)
+    launch_template_version    = optional(string)
+
+    # Instance configuration
+    force_update_version = optional(bool, false)
+    update_config = optional(object({
+      max_unavailable_percentage = optional(number, 25)
+    }), {})
   }))
 }
 

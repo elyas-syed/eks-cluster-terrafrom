@@ -8,7 +8,7 @@ data "aws_caller_identity" "current" {}
 resource "aws_eks_access_entry" "main" {
   for_each = var.access_entries
 
-  cluster_name      = aws_eks_cluster.main.name
+  cluster_name = aws_eks_cluster.main.name
   # Use current caller identity if principal_arn is "CURRENT_USER" or use provided ARN
   principal_arn     = each.value.principal_arn == "CURRENT_USER" ? data.aws_caller_identity.current.arn : each.value.principal_arn
   kubernetes_groups = try(each.value.kubernetes_groups, null)

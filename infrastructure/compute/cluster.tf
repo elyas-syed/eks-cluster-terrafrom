@@ -15,6 +15,16 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [var.cluster_security_group_id]
   }
 
+  # EKS 1.28+ enables envelope encryption by default. A customer-managed key
+  # is optional and must have an appropriate EKS key policy.
+  dynamic "encryption_config" {
+    for_each = var.cluster_kms_key_arn == null ? [] : [var.cluster_kms_key_arn]
+    content {
+      resources = ["secrets"]
+      provider { key_arn = encryption_config.value }
+    }
+  }
+
   # Authentication mode for access entries
   access_config {
     authentication_mode                         = var.authentication_mode
@@ -42,6 +52,7 @@ resource "aws_eks_cluster" "main" {
 resource "aws_cloudwatch_log_group" "cluster" {
   name              = "/aws/eks/${var.cluster_name}/cluster"
   retention_in_days = var.cluster_log_retention_days
+  kms_key_id        = var.cluster_log_kms_key_arn
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-cluster-logs"

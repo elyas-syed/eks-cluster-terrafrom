@@ -52,13 +52,13 @@ variable "cluster_endpoint_private_access" {
 variable "cluster_endpoint_public_access" {
   description = "Enable public API server endpoint"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
   description = "List of CIDR blocks that can access the public API server endpoint"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
 }
 
 variable "cluster_enabled_log_types" {
@@ -153,7 +153,7 @@ variable "access_entries" {
 variable "authentication_mode" {
   description = "The authentication mode for the cluster"
   type        = string
-  default     = "API_AND_CONFIG_MAP"
+  default     = "API"
 }
 
 variable "ebs_csi_driver_role_arn" {
@@ -185,4 +185,15 @@ variable "pod_identity_associations" {
     condition     = length(var.pod_identity_associations) == 0 || contains(keys(var.cluster_addons), "eks-pod-identity-agent")
     error_message = "Pod Identity associations require the eks-pod-identity-agent add-on."
   }
+}
+
+variable "cluster_kms_key_arn" {
+  description = "Optional customer-managed KMS key for API data; EKS 1.28+ encrypts with an AWS-owned key by default"
+  type        = string
+  default     = null
+}
+variable "cluster_log_kms_key_arn" {
+  description = "Optional customer-managed KMS key authorized for CloudWatch Logs in the cluster region"
+  type        = string
+  default     = null
 }

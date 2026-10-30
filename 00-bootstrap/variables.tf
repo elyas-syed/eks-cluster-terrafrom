@@ -29,3 +29,9 @@ variable "enable_dynamodb_locking" {
   type        = bool
   default     = false
 }
+
+variable "state_kms_key_arn" {
+  description = "Optional existing customer-managed KMS key for state encryption"
+  type        = string
+  default     = null
+}

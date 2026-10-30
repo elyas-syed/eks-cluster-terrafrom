@@ -271,3 +271,20 @@ variable "pod_identity_associations" {
     error_message = "Pod Identity associations require the eks-pod-identity-agent add-on."
   }
 }
+
+variable "cluster_kms_key_arn" {
+  description = "Optional customer-managed KMS key for API data; EKS 1.28+ encrypts with an AWS-owned key by default"
+  type        = string
+  default     = null
+}
+variable "cluster_log_kms_key_arn" {
+  description = "Optional customer-managed KMS key authorized for CloudWatch Logs in the cluster region"
+  type        = string
+  default     = null
+}
+
+variable "enable_flow_logs" {
+  description = "Capture rejected VPC traffic in CloudWatch Logs"
+  type        = bool
+  default     = true
+}

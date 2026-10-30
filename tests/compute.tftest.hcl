@@ -120,3 +120,34 @@ run "reject_invalid_scaling" {
   }
   expect_failures = [var.node_groups]
 }
+
+run "pod_identity_and_logging" {
+  command = plan
+  module { source = "./infrastructure/compute" }
+  variables {
+    cluster_addons = { eks-pod-identity-agent = { addon_version = "v1.3.9-eksbuild.1" } }
+    pod_identity_associations = {
+      app = { namespace = "apps", service_account = "app", role_arn = "arn:aws:iam::123456789012:role/App" }
+    }
+    cluster_enabled_log_types  = ["audit"]
+    cluster_log_retention_days = 60
+  }
+  assert {
+    condition     = aws_eks_pod_identity_association.workload["app"].service_account == "app" && aws_eks_addon.pod_identity[0].addon_version == "v1.3.9-eksbuild.1"
+    error_message = "Pod identity must associate the requested service account and install its agent."
+  }
+  assert {
+    condition     = aws_cloudwatch_log_group.cluster.retention_in_days == 60 && toset(aws_eks_cluster.main.enabled_cluster_log_types) == toset(["audit"])
+    error_message = "Configured logging and retention must be preserved."
+  }
+}
+run "reject_pod_identity_without_agent" {
+  command = plan
+  module { source = "./infrastructure/compute" }
+  variables {
+    pod_identity_associations = {
+      app = { namespace = "apps", service_account = "app", role_arn = "arn:aws:iam::123456789012:role/App" }
+    }
+  }
+  expect_failures = [var.pod_identity_associations]
+}

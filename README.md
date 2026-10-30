@@ -51,7 +51,8 @@ kubectl get pods -A
 ```
 
 This creates billable resources, including one NAT gateway per availability
-zone, the EKS control plane, EC2 nodes, EBS volumes, and CloudWatch logs.
+zone, the EKS control plane, EC2 nodes, EBS volumes, and CloudWatch logs. Rejected VPC
+traffic is logged by default (`enable_flow_logs = false` disables it).
 The development example uses two `t3.medium` nodes. Change sizing deliberately;
 autoscaling group limits alone do not install a node autoscaler.
 
@@ -174,6 +175,12 @@ state. Upgrade Kubernetes one minor version at a time, review EKS upgrade
 insights and deprecated APIs, update node versions and add-ons, and inspect every
 plan for replacements. Managed nodes are explicitly tied to the cluster's
 configured Kubernetes version.
+
+API data is encrypted by EKS using an AWS-owned key by default on Kubernetes
+1.28+. Optional `cluster_kms_key_arn`, `cluster_log_kms_key_arn`, and bootstrap
+`state_kms_key_arn` inputs let you use existing customer-managed keys. Supply key
+policies and deployment permissions appropriate to the services involved.
+See [security decisions](docs/SECURITY.md) for baseline tradeoffs and scanner findings.
 
 Production extensions should be selected by need: workload network policies,
 Pod Security admission, backup/restore, monitoring and alarms, Secrets Manager,

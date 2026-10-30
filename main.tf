@@ -42,6 +42,7 @@ module "networking" {
 
   cluster_name         = var.cluster_name
   vpc_cidr             = var.vpc_cidr
+  enable_flow_logs     = var.enable_flow_logs
   availability_zones   = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, length(var.private_subnet_cidrs))
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
@@ -54,6 +55,7 @@ module "security" {
   source = "./infrastructure/security"
 
   vpc_id       = module.networking.vpc_id
+  vpc_cidr     = var.vpc_cidr
   cluster_name = var.cluster_name
   environment  = var.environment
   tags         = var.tags
@@ -70,6 +72,8 @@ module "eks_cluster" {
   cluster_version            = var.cluster_version
   cluster_enabled_log_types  = var.cluster_enabled_log_types
   cluster_log_retention_days = var.cluster_log_retention_days
+  cluster_kms_key_arn        = var.cluster_kms_key_arn
+  cluster_log_kms_key_arn    = var.cluster_log_kms_key_arn
 
   vpc_id                               = module.networking.vpc_id
   private_subnet_ids                   = module.networking.private_subnet_ids

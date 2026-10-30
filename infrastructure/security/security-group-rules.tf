@@ -15,13 +15,13 @@ resource "aws_security_group_rule" "cluster_ingress_node_https" {
 
 # Allow all outbound traffic from cluster
 resource "aws_security_group_rule" "cluster_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_security_group.cluster.id
-  description       = "Allow all outbound traffic from cluster"
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  source_security_group_id = aws_security_group.node_group.id
+  security_group_id        = aws_security_group.cluster.id
+  description              = "Allow control plane traffic to worker nodes"
 }
 
 # ==============================================================================
@@ -86,10 +86,30 @@ resource "aws_security_group_rule" "node_egress_cluster_https" {
 # Allow all outbound traffic from nodes
 resource "aws_security_group_rule" "node_egress_all" {
   type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.node_group.id
+  description       = "Allow HTTPS for image pulls and AWS APIs through NAT"
+}
+resource "aws_security_group_rule" "node_egress_self" {
+  type              = "egress"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  self              = true
   security_group_id = aws_security_group.node_group.id
-  description       = "Allow all outbound traffic from nodes"
+  description       = "Allow node and pod communication within the worker security group"
+}
+
+resource "aws_security_group_rule" "node_egress_dns" {
+  for_each          = toset(["tcp", "udp"])
+  type              = "egress"
+  from_port         = 53
+  to_port           = 53
+  protocol          = each.value
+  cidr_blocks       = [var.vpc_cidr]
+  security_group_id = aws_security_group.node_group.id
+  description       = "Allow VPC DNS resolution"
 }

@@ -1,8 +1,12 @@
-# Migration from the previous root configuration
+# Existing deployment safety
 
-Back up state, retain your existing variable values, and review a full plan before
-applying. This release targets new deployments by default; it does not silently
-upgrade an existing 1.34 cluster through multiple minor versions.
+The repository root on `main` is the supported deployment configuration. New
+deployments can follow the root README without a migration step. These notes
+apply only when reusing infrastructure or state created with an older revision.
+Fresh-deployment tests do not validate every existing cluster's upgrade path.
+
+Back up state, retain existing variable values, and review a full plan before
+applying. Stop if the plan proposes unexpected replacements or deletions.
 
 1. Keep `cluster_version` at the existing version initially, then upgrade one
    minor version at a time with compatible add-ons and workload API checks.

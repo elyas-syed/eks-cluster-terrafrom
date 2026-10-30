@@ -1,0 +1,31 @@
+cluster_name = "my-prod-eks"
+cluster_version = "1.37"
+aws_region = "us-east-1"
+environment = "prod"
+# Run Terraform/platform tooling from a network that can reach this private API.
+cluster_endpoint_private_access = true
+cluster_endpoint_public_access = false
+availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c"]
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24", "10.0.30.0/24"]
+cluster_log_retention_days = 90
+access_entries = {
+  admin = { principal_arn = "arn:aws:iam::123456789012:role/PlatformAdmin", grant_cluster_admin = true }
+  viewer = {
+    principal_arn = "arn:aws:iam::123456789012:role/AppViewer"
+    access_policy = {
+      policy_name = "AmazonEKSViewPolicy"
+      access_scope = { type = "namespace", namespaces = ["apps"] }
+    }
+  }
+}
+node_groups = {
+  general = {
+    instance_types = ["m6i.large"]
+    min_size = 3
+    max_size = 6
+    desired_size = 3
+    labels = { workload = "general" }
+    update_config = { max_unavailable_percentage = 25 }
+  }
+}

@@ -1,11 +1,13 @@
 output "cluster_service_role_arn" {
   description = "ARN of the EKS cluster service role"
   value       = aws_iam_role.cluster.arn
+  depends_on  = [aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy]
 }
 
 output "node_group_role_arn" {
   description = "ARN of the EKS node group role"
   value       = aws_iam_role.node_group.arn
+  depends_on  = [aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy, aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy, aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly]
 }
 
 output "cluster_security_group_id" {

@@ -36,7 +36,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = var.state_kms_key_arn == null ? "AES256" : "aws:kms"
+      kms_master_key_id = var.state_kms_key_arn
     }
   }
 }
@@ -58,6 +59,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state[0].id
 
   rule {
+    filter {}
     id     = "state_file_lifecycle"
     status = "Enabled"
 
@@ -69,4 +71,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
       days_after_initiation = 7
     }
   }
+}
+resource "aws_s3_bucket_policy" "require_tls" {
+  count  = var.enable_remote_state ? 1 : 0
+  bucket = aws_s3_bucket.terraform_state[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource  = [aws_s3_bucket.terraform_state[0].arn, "${aws_s3_bucket.terraform_state[0].arn}/*"]
+      Condition = { Bool = { "aws:SecureTransport" = "false" } }
+    }]
+  })
 }

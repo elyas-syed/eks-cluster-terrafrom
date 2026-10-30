@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sample-nginx-app
-  namespace: default
   labels:
     app: sample-nginx-app
 spec:
@@ -15,11 +14,32 @@ spec:
       labels:
         app: sample-nginx-app
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: nginx
-        image: nginx:1.25
+        image: ghcr.io/nginx/nginx-unprivileged:1.30.6-alpine@sha256:2daef144b574804198caccc4041819fa1801ecd5df2252a39646bfa2b1ff3bea
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         resources:
           requests:
             memory: "64Mi"
@@ -28,9 +48,13 @@ spec:
             memory: "128Mi"
             cpu: "500m"
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         - name: html-volume
           mountPath: /usr/share/nginx/html
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: html-volume
         configMap:
           name: nginx-html
@@ -39,7 +63,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-html
-  namespace: default
 data:
   index.html: |
     <!DOCTYPE html>
@@ -63,8 +86,7 @@ data:
                 <ul>
                     <li>AWS Load Balancer Controller (ALB)</li>
                     <li>EBS CSI Driver for persistent storage</li>
-                    <li>Cluster Autoscaler for auto-scaling</li>
-                    <li>Metrics Server for monitoring</li>
+                    <li>Metrics Server for HPA metrics (optional platform stack)</li>
                 </ul>
                 <p><strong>Pod Information:</strong></p>
                 <p>Hostname: <span id="hostname"></span></p>

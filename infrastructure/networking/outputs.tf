@@ -16,6 +16,7 @@ output "public_subnet_ids" {
 output "private_subnet_ids" {
   description = "List of IDs of private subnets"
   value       = aws_subnet.private[*].id
+  depends_on  = [aws_route_table_association.private]
 }
 
 output "internet_gateway_id" {

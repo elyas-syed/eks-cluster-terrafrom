@@ -24,3 +24,7 @@ variable "tags" {
 #   description = "OIDC issuer URL for the EKS cluster"
 #   type        = string
 # }
+variable "vpc_cidr" {
+  description = "VPC CIDR used to scope DNS egress"
+  type        = string
+}

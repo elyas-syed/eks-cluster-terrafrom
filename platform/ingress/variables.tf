@@ -3,14 +3,15 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "oidc_provider_arn" {
-  description = "ARN of the OIDC Provider for IRSA"
+variable "controller_role_arn" {
+  description = "Existing controller IAM role ARN from the cluster root output"
   type        = string
 }
 
-variable "oidc_provider_url" {
-  description = "URL of the OIDC Provider"
+variable "chart_version" {
+  description = "Controller chart version; keep aligned with the vendored IAM policy"
   type        = string
+  default     = "3.6.2"
 }
 
 variable "vpc_id" {
@@ -27,4 +28,9 @@ variable "tags" {
   description = "A map of tags to add to all resources"
   type        = map(string)
   default     = {}
+}
+variable "enable_metrics_server" {
+  description = "Install Metrics Server for kubectl top and HPA metrics"
+  type        = bool
+  default     = true
 }

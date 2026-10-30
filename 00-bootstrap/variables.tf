@@ -24,3 +24,14 @@ variable "enable_remote_state" {
   type        = bool
   default     = true
 }
+variable "enable_dynamodb_locking" {
+  description = "Legacy state locking. Keep true while migrating existing DynamoDB-backed clients."
+  type        = bool
+  default     = false
+}
+
+variable "state_kms_key_arn" {
+  description = "Optional existing customer-managed KMS key for state encryption"
+  type        = string
+  default     = null
+}

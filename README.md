@@ -2,7 +2,7 @@
 
 A modular Terraform project for deploying an Amazon EKS (Elastic Kubernetes Service) cluster with VPC networking, managed node groups, IAM access, and essential add-ons. The current baseline targets Kubernetes **1.37**.
 
-Use the repository root for new deployments. The `terraform/` directory is legacy reference code and must not be applied alongside the root. For existing clusters, read the [migration notes](docs/MIGRATION.md) before upgrading.
+The `main` branch is the source of truth for supported deployments. Follow this README from the repository root; `dev` is used to test changes before promotion to `main`. The `terraform/` directory is retained for historical reference only.
 
 ## Table of Contents
 
@@ -552,7 +552,7 @@ Check that your public IP matches the allowed CIDRs, or that you have private ne
 
 The current scope is a tested cluster deployment baseline: networking, managed nodes, IAM access, workload identity, essential add-ons, and optional ingress/metrics examples.
 
-Backups, expanded monitoring, disaster recovery, Auto Mode, Karpenter, and other production integrations are deferred. They are not required to use the current baseline and are not being added in this release. Review [security decisions](docs/SECURITY.md) and [migration guidance](docs/MIGRATION.md) for current defaults and limitations.
+Backups, expanded monitoring, disaster recovery, Auto Mode, Karpenter, and other production integrations are deferred. They are not required to use the current baseline and are not being added in this release. Review [security decisions](docs/SECURITY.md) for current defaults and limitations.
 
 ## 💡 Best Practices
 
@@ -560,7 +560,7 @@ Backups, expanded monitoring, disaster recovery, Auto Mode, Karpenter, and other
 2. **Secrets**: Keep credentials, local variable files, state, and saved plans out of Git.
 3. **Access Control**: Prefer explicit IAM role principals and scoped access policies.
 4. **Versioning**: Keep Kubernetes versions explicit and commit provider lock files. Pin add-on versions when repeatable upgrades are needed.
-5. **Upgrades**: Upgrade existing clusters one minor version at a time and review plans for replacements.
+5. **Upgrades**: Review the [upgrade safety notes](docs/MIGRATION.md) before applying this code to an existing deployment; upgrade Kubernetes one minor version at a time and check plans for replacements.
 6. **Testing**: Keep the existing CI checks and test changes on `dev` before merging to `main`.
 7. **Cleanup**: Remove sample workloads before their controllers and verify no billable test resources remain.
 

@@ -18,3 +18,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "cluster_oidc_provider_arn" {
+  description = "OIDC provider ARN; also orders trust-policy creation after the provider exists"
+  type        = string
+  default     = null
+}

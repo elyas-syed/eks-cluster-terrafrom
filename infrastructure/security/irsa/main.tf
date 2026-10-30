@@ -1,7 +1,11 @@
 data "aws_partition" "current" {}
-
-# Data source to get current AWS account ID
 data "aws_caller_identity" "current" {}
+
+locals {
+  # The explicit ARN orders creation correctly. Keep the previous derived ARN
+  # as a fallback for standalone callers that already own their OIDC provider.
+  oidc_provider_arn = var.cluster_oidc_provider_arn != null ? var.cluster_oidc_provider_arn : "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
+}
 
 # IAM Role for EBS CSI Driver
 resource "aws_iam_role" "ebs_csi_driver" {
@@ -13,7 +17,7 @@ resource "aws_iam_role" "ebs_csi_driver" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
+        Federated = local.oidc_provider_arn
       }
       Condition = {
         StringEquals = {
@@ -44,7 +48,7 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
+        Federated = local.oidc_provider_arn
       }
       Condition = {
         StringEquals = {

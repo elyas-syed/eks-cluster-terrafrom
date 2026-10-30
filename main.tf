@@ -60,7 +60,6 @@ module "security" {
   environment  = var.environment
   tags         = var.tags
 
-  depends_on = [module.networking]
 }
 
 # EKS Cluster
@@ -105,12 +104,12 @@ module "eks_cluster" {
 module "irsa" {
   source = "./infrastructure/security/irsa"
 
-  cluster_name            = var.cluster_name
-  cluster_oidc_issuer_url = module.eks_cluster.cluster_oidc_issuer_url
-  environment             = var.environment
-  tags                    = var.tags
+  cluster_name              = var.cluster_name
+  cluster_oidc_issuer_url   = module.eks_cluster.cluster_oidc_issuer_url
+  cluster_oidc_provider_arn = module.eks_cluster.oidc_provider_arn
+  environment               = var.environment
+  tags                      = var.tags
 
-  depends_on = [module.eks_cluster]
 }
 
 # EBS CSI Addon - Created after IRSA to avoid circular dependency

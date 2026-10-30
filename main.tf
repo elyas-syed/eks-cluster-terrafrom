@@ -34,6 +34,11 @@ provider "aws" {
 
 data "aws_availability_zones" "available" {
   state = "available"
+  # EKS control-plane subnets cannot be placed in Local Zones.
+  filter {
+    name   = "zone-type"
+    values = ["availability-zone"]
+  }
 }
 
 # Networking Infrastructure

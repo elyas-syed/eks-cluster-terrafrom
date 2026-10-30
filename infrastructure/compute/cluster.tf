@@ -11,8 +11,9 @@ resource "aws_eks_cluster" "main" {
     subnet_ids              = concat(var.private_subnet_ids, var.public_subnet_ids)
     endpoint_private_access = var.cluster_endpoint_private_access
     endpoint_public_access  = var.cluster_endpoint_public_access
-    public_access_cidrs     = var.cluster_endpoint_public_access_cidrs
-    security_group_ids      = [var.cluster_security_group_id]
+    # EKS retains this list while public access is disabled; omit it to avoid drift.
+    public_access_cidrs = var.cluster_endpoint_public_access ? var.cluster_endpoint_public_access_cidrs : null
+    security_group_ids  = [var.cluster_security_group_id]
   }
 
   # EKS 1.28+ enables envelope encryption by default. A customer-managed key

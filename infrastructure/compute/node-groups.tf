@@ -3,12 +3,13 @@ resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
   cluster_name    = aws_eks_cluster.main.name
+  version         = var.cluster_version
   node_group_name = each.key
   node_role_arn   = var.node_group_role_arn
   subnet_ids      = var.private_subnet_ids
 
-  capacity_type  = each.value.capacity_type
-  ami_type       = each.value.ami_type
+  capacity_type = each.value.capacity_type
+  ami_type      = each.value.ami_type
   # disk_size is specified in the launch template, not here
   instance_types = each.value.instance_types
 
@@ -19,21 +20,37 @@ resource "aws_eks_node_group" "main" {
   }
 
   # Use basic labels only
-  labels = {
+  labels = merge({
     "node-group"  = each.key
     "environment" = var.environment
+  }, each.value.labels)
+
+  dynamic "taint" {
+    for_each = each.value.taints
+    content {
+      key    = taint.value.key
+      value  = taint.value.value
+      effect = taint.value.effect
+    }
+  }
+
+  force_update_version = each.value.force_update_version
+  update_config {
+    max_unavailable_percentage = each.value.update_config.max_unavailable_percentage
   }
 
   # Launch template for enhanced features (encryption, metadata options, etc.)
   launch_template {
-    id      = aws_launch_template.node_group[each.key].id
-    version = aws_launch_template.node_group[each.key].latest_version
+    id      = each.value.use_custom_launch_template ? null : aws_launch_template.node_group[each.key].id
+    name    = each.value.use_custom_launch_template ? each.value.launch_template_name : null
+    version = each.value.use_custom_launch_template ? coalesce(each.value.launch_template_version, "$Default") : tostring(aws_launch_template.node_group[each.key].latest_version)
   }
 
   # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
   depends_on = [
     aws_eks_cluster.main,
     aws_launch_template.node_group,
+    aws_eks_addon.vpc_cni,
   ]
 
   tags = merge(var.tags, {
@@ -47,7 +64,7 @@ resource "aws_eks_node_group" "main" {
 
 # Enhanced Launch Templates
 resource "aws_launch_template" "node_group" {
-  for_each = var.node_groups # Remove the conditional filter
+  for_each = { for name, group in var.node_groups : name => group if !group.use_custom_launch_template }
 
   name_prefix = "${var.cluster_name}-${each.key}-"
 

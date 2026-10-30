@@ -1,0 +1,14 @@
+cluster_name = "my-dev-eks"
+cluster_version = "1.37"
+aws_region = "us-east-1"
+environment = "dev"
+# AZs are discovered in aws_region when availability_zones is omitted.
+# For access from your laptop, replace the CIDR with your actual public IP.
+cluster_endpoint_public_access = true
+cluster_endpoint_public_access_cidrs = ["203.0.113.10/32"]
+access_entries = {
+  admin = { principal_arn = "CURRENT_USER", grant_cluster_admin = true }
+}
+node_groups = {
+  general = { instance_types = ["t3.medium"], min_size = 2, max_size = 4, desired_size = 2 }
+}

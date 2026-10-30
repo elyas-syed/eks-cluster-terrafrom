@@ -33,3 +33,8 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+variable "enable_flow_logs" {
+  description = "Capture rejected VPC traffic in CloudWatch Logs"
+  type        = bool
+  default     = true
+}

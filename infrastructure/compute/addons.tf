@@ -1,3 +1,12 @@
+# Resolve the AWS-recommended version for this Kubernetes minor version.
+# An explicit version bypasses discovery, allowing reproducible pinned releases.
+data "aws_eks_addon_version" "compatible" {
+  for_each           = { for name, config in var.cluster_addons : name => config if config.addon_version == null }
+  addon_name         = each.key
+  kubernetes_version = var.cluster_version
+  most_recent        = false
+}
+
 # ==============================================================================
 # EKS ADDONS MANAGEMENT
 # ==============================================================================
@@ -8,7 +17,7 @@ resource "aws_eks_addon" "vpc_cni" {
 
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "vpc-cni"
-  addon_version               = try(var.cluster_addons["vpc-cni"].addon_version, null)
+  addon_version               = var.cluster_addons["vpc-cni"].addon_version != null ? var.cluster_addons["vpc-cni"].addon_version : data.aws_eks_addon_version.compatible["vpc-cni"].version
   resolve_conflicts_on_create = try(var.cluster_addons["vpc-cni"].resolve_conflicts_on_create, "OVERWRITE")
   resolve_conflicts_on_update = try(var.cluster_addons["vpc-cni"].resolve_conflicts_on_update, "OVERWRITE")
   service_account_role_arn    = try(var.cluster_addons["vpc-cni"].service_account_role_arn, null)
@@ -27,7 +36,7 @@ resource "aws_eks_addon" "coredns" {
 
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "coredns"
-  addon_version               = try(var.cluster_addons["coredns"].addon_version, null)
+  addon_version               = var.cluster_addons["coredns"].addon_version != null ? var.cluster_addons["coredns"].addon_version : data.aws_eks_addon_version.compatible["coredns"].version
   resolve_conflicts_on_create = try(var.cluster_addons["coredns"].resolve_conflicts_on_create, "OVERWRITE")
   resolve_conflicts_on_update = try(var.cluster_addons["coredns"].resolve_conflicts_on_update, "OVERWRITE")
   service_account_role_arn    = try(var.cluster_addons["coredns"].service_account_role_arn, null)
@@ -46,7 +55,7 @@ resource "aws_eks_addon" "kube_proxy" {
 
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "kube-proxy"
-  addon_version               = try(var.cluster_addons["kube-proxy"].addon_version, null)
+  addon_version               = var.cluster_addons["kube-proxy"].addon_version != null ? var.cluster_addons["kube-proxy"].addon_version : data.aws_eks_addon_version.compatible["kube-proxy"].version
   resolve_conflicts_on_create = try(var.cluster_addons["kube-proxy"].resolve_conflicts_on_create, "OVERWRITE")
   resolve_conflicts_on_update = try(var.cluster_addons["kube-proxy"].resolve_conflicts_on_update, "OVERWRITE")
   service_account_role_arn    = try(var.cluster_addons["kube-proxy"].service_account_role_arn, null)
@@ -80,3 +89,24 @@ resource "aws_eks_addon" "kube_proxy" {
 #     Name = "${var.cluster_name}-cloudwatch-observability"
 #   })
 # }
+resource "aws_eks_addon" "pod_identity" {
+  count                       = contains(keys(var.cluster_addons), "eks-pod-identity-agent") ? 1 : 0
+  cluster_name                = aws_eks_cluster.main.name
+  addon_name                  = "eks-pod-identity-agent"
+  addon_version               = var.cluster_addons["eks-pod-identity-agent"].addon_version != null ? var.cluster_addons["eks-pod-identity-agent"].addon_version : data.aws_eks_addon_version.compatible["eks-pod-identity-agent"].version
+  configuration_values        = var.cluster_addons["eks-pod-identity-agent"].configuration_values
+  resolve_conflicts_on_create = var.cluster_addons["eks-pod-identity-agent"].resolve_conflicts_on_create
+  resolve_conflicts_on_update = var.cluster_addons["eks-pod-identity-agent"].resolve_conflicts_on_update
+  depends_on                  = [aws_eks_node_group.main]
+  tags                        = var.tags
+}
+
+resource "aws_eks_pod_identity_association" "workload" {
+  for_each        = var.pod_identity_associations
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = each.value.namespace
+  service_account = each.value.service_account
+  role_arn        = each.value.role_arn
+  depends_on      = [aws_eks_addon.pod_identity]
+  tags            = var.tags
+}

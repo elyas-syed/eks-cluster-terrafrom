@@ -35,7 +35,7 @@ resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.public_subnet_cidrs[count.index]
   availability_zone       = var.availability_zones[count.index]
-  map_public_ip_on_launch = true # Instances get public IPs
+  map_public_ip_on_launch = false # NAT gateways and load balancers manage their own addresses
 
   tags = merge(var.tags, {
     Name                                        = "${var.cluster_name}-public-${var.availability_zones[count.index]}"

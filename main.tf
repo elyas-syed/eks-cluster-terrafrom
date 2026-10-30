@@ -59,7 +59,6 @@ module "security" {
   cluster_name = var.cluster_name
   environment  = var.environment
   tags         = var.tags
-  # Remove cluster_oidc_issuer_url - not needed for basic security resources
 
   depends_on = [module.networking]
 }
@@ -97,11 +96,9 @@ module "eks_cluster" {
   access_entries                              = var.access_entries
   authentication_mode                         = var.authentication_mode
   bootstrap_cluster_creator_admin_permissions = var.bootstrap_cluster_creator_admin_permissions
-  ebs_csi_driver_role_arn                     = null # Not used - EBS CSI addon created in root module
 
   environment = var.environment
   tags        = var.tags
-
 }
 
 # IRSA (IAM Roles for Service Accounts) - Created after EKS cluster
@@ -156,14 +153,4 @@ moved {
   to   = module.eks_cluster.aws_eks_access_policy_association.cluster_admin
 }
 
-# Platform Add-ons (Optional) - Commented out for initial deployment
-# module "platform" {
-#   source = "./platform/monitoring"
-#   
-#   cluster_name                = module.eks_cluster.cluster_name
-#   cluster_endpoint           = module.eks_cluster.cluster_endpoint
-#   cluster_certificate_authority_data = module.eks_cluster.cluster_certificate_authority_data
-#   
-#   environment = var.environment
-#   tags       = var.tags
-# }
+# Kubernetes/Helm components are applied separately from platform/ingress.

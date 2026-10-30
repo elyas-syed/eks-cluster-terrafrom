@@ -1,3 +1,5 @@
+data "aws_partition" "current" {}
+
 # Data source to get current AWS account ID
 data "aws_caller_identity" "current" {}
 
@@ -11,7 +13,7 @@ resource "aws_iam_role" "ebs_csi_driver" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
+        Federated = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
       }
       Condition = {
         StringEquals = {
@@ -28,7 +30,7 @@ resource "aws_iam_role" "ebs_csi_driver" {
 }
 
 resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   role       = aws_iam_role.ebs_csi_driver.name
 }
 
@@ -42,7 +44,7 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Effect = "Allow"
       Principal = {
-        Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
+        Federated = "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(var.cluster_oidc_issuer_url, "https://", "")}"
       }
       Condition = {
         StringEquals = {
@@ -63,7 +65,7 @@ resource "aws_iam_policy" "aws_load_balancer_controller" {
   name = "${var.cluster_name}-AWSLoadBalancerControllerIAMPolicy"
 
   # Vendored from kubernetes-sigs/aws-load-balancer-controller v3.6.2.
-  policy = file("${path.module}/load-balancer-controller-policy.json")
+  policy = replace(file("${path.module}/load-balancer-controller-policy.json"), "arn:aws:", "arn:${data.aws_partition.current.partition}:")
 
   tags = var.tags
 }

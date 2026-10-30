@@ -156,11 +156,6 @@ variable "authentication_mode" {
   default     = "API"
 }
 
-variable "ebs_csi_driver_role_arn" {
-  description = "ARN of the IAM role for EBS CSI driver"
-  type        = string
-  default     = null # Make it optional
-}
 variable "cluster_log_retention_days" {
   description = "CloudWatch control-plane log retention in days"
   type        = number

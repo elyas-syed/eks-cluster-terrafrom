@@ -45,5 +45,5 @@ jobs:
           version: v0.76.1
           scan-type: config
           scan-ref: .
-          skip-dirs: terraform
+          skip-dirs: terraform,.smoke,.terraform
           exit-code: '0'
